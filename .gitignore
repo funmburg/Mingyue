@@ -33,3 +33,8 @@ google-services.json
 
 # Android Profiling
 *.hprof
+
+# Node / Capacitor
+node_modules/
+www/
+android/

@@ -1,0 +1,19 @@
+{
+  "name": "mingyue",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mingyue planner, Android build",
+  "type": "module",
+  "scripts": {
+    "build:web": "node scripts/build-web.mjs",
+    "assets": "capacitor-assets generate --android --iconBackgroundColor '#FFFFFF' --iconBackgroundColorDark '#0E0E0E' --splashBackgroundColor '#FFFFFF' --splashBackgroundColorDark '#0E0E0E'"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/core": "^8.5.3"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.3"
+  }
+}
