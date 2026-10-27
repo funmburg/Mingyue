@@ -5,7 +5,7 @@ This repo wraps it into an Android app with [Capacitor](https://capacitorjs.com)
 
 ## Getting the APK
 
-Every push to `main` builds the APK on GitHub Actions. Open **Actions → Android APK → latest run → Artifacts → mingyue-apk**, download, unzip, and install the `.apk` on the phone (allow installing from unknown sources once).
+Every push to `main` builds the APK and puts it on the release **Последняя сборка**: open https://github.com/funmburg/Mingyue/releases/latest on the phone (signed in to GitHub), tap `mingyue.apk`, install (allow installing from unknown sources once). The same APK is also kept for 30 days under Actions → run → Artifacts.
 
 ## Updating the app
 
