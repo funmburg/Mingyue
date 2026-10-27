@@ -312,6 +312,7 @@ img.mascot, .hdragon img { filter: drop-shadow(0 0 .6px var(--h-fg)) drop-shadow
   /* today on phone: day strip + timeline */
   .ph-head { display: flex; align-items: center; gap: 10px; }
   .ph-head > .mascot { width: 40px; height: 41px; }
+  .ph-head > .hiro { width: 52px; height: 54px; flex: none; margin: -6px -4px -6px -6px; }
   .ph-head .ttl { flex: 1; min-width: 0; }
   .ph-head h1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: clamp(24px, 8vw, 32px); }
   .ph-head .sub { margin-top: 2px; font-size: 13px; display: flex; align-items: center; gap: 6px; }
@@ -1056,7 +1057,7 @@ function viewTodayPhone() {
   const line = [...evs, ...items].sort((a, b) => (a.time || "").localeCompare(b.time || ""));
   const slot = h("button", { class: "slot", onclick: () => addSheet(selDay) }, ico("i-plus"), items.length ? "Свободно, добавить задачу" : "Добавить задачу на этот день");
   return h("div", { class: "wrap" },
-    h("div", { class: "ph-head" }, mascotImg(),
+    h("div", { class: "ph-head" }, isToday ? HIRO_EL : mascotImg(),
       h("div", { class: "ttl" }, h("h1", {}, title),
         h("div", { class: "sub" }, h("i", { "data-mode": mode, title: $("#sync span")?.textContent || "" }),
           `${sel.getDate()} ${MON_GEN[sel.getMonth()]}` + (items.length ? (left ? ` · ${left} из ${items.length}` : " · всё сделано") : ""))),
@@ -1070,7 +1071,7 @@ function viewTodayPhone() {
     })) : null,
     overdue.length ? h("section", { class: "sec overdue" }, h("h2", {}, "Просрочено", h("span", { class: "n" }, overdue.length)), h("div", { class: "tline" }, overdue.map(x => card(x, { time: true })))) : null,
     h("section", { class: "sec" }, h("div", { class: "tline" },
-      line.length ? line.map(row) : h("div", { class: "blank" }, isToday ? HIRO_EL : mascotImg(), h("div", {}, isToday ? "На сегодня пусто. Миго отдыхает." : "На этот день пока ничего.")),
+      line.length ? line.map(row) : h("div", { class: "blank" }, mascotImg(), h("div", {}, isToday ? "На сегодня пусто. Миго отдыхает." : "На этот день пока ничего.")),
       slot)),
     inbox.length ? h("section", { class: "sec" }, h("h2", {}, "Входящие", h("span", { class: "n" }, inbox.length)), h("div", { class: "tline" }, inbox.map(x => card(x)))) : null);
 }
