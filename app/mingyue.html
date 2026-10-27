@@ -599,6 +599,7 @@ img.mascot, .hdragon img { filter: drop-shadow(0 0 .6px var(--h-fg)) drop-shadow
 .profile .avatar { width: 56px; height: 56px; font-size: 22px; }
 .profile b { display: block; font-size: 17px; }
 .profile .pinfo { flex: 1; min-width: 0; }
+.build { margin: 4px 0 0; text-align: center; font: 500 11px var(--h-f-mono); color: var(--h-muted); }
 .profile .pname { display: block; width: 100%; border: 0; border-bottom: 1.5px dashed var(--h-line); border-radius: 0; background: transparent; padding: 2px 0 3px; margin-bottom: 4px; font-size: 17px; font-weight: 700; color: var(--h-fg); outline: none; }
 .profile .pname:focus { border-bottom-color: var(--h-fg); }
 .profile .pname::placeholder { color: var(--h-muted); font-weight: 600; }
@@ -1425,7 +1426,8 @@ function viewSettings() {
       row("Google Календарь", gStatusText(), (() => { const c = h("input", { type: "checkbox", class: "tgl", role: "switch", "aria-label": "Google Календарь", checked: prefs.gcal }); c.addEventListener("change", () => { setPref("gcal", c.checked); if (c.checked) gReload(); render(); }); return c; })()),
       prefs.gcal && GC.state === "err" ? h("div", { class: "set-row" }, gErrBox()) : null),
     group("Данные",
-      h("div", { class: "set-row" }, h("button", { class: "link", onclick: exportData }, "Экспорт в JSON", h("small", { style: "display:block;color:var(--h-muted);font-weight:500;font-size:12px" }, counts)))));
+      h("div", { class: "set-row" }, h("button", { class: "link", onclick: exportData }, "Экспорт в JSON", h("small", { style: "display:block;color:var(--h-muted);font-weight:500;font-size:12px" }, counts)))),
+    h("p", { class: "build" }, "Mingyue · " + (window.MINGYUE_BUILD ? "Android, сборка " + window.MINGYUE_BUILD : "claude.ai")));
 }
 VIEWS.settings = viewSettings;
 /* calendar tab: month grid with the chosen day's tasks below, or the whole year */

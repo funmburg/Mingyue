@@ -2,6 +2,7 @@
 // in a full HTML document for the Android app: www/index.html.
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 
+const build = process.env.GITHUB_SHA ? `${process.env.GITHUB_RUN_NUMBER || ""} · ${process.env.GITHUB_SHA.slice(0, 7)}` : "local";
 const body = readFileSync(new URL("../app/mingyue.html", import.meta.url), "utf8");
 const head = `<!doctype html><html lang="ru"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -16,6 +17,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body::before{content:"";position:fixed;z-index:45;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:var(--h-bg,#fff);pointer-events:none}
 </style>
 <script>
+window.MINGYUE_BUILD = ${JSON.stringify(build)};
 // Android's system font size would scale the whole layout up and break it; the app keeps its own sizes
 window.Capacitor?.Plugins?.TextZoom?.set({ value: 1 }).catch(() => {});
 </script></head><body>

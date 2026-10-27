@@ -37,6 +37,9 @@ jobs:
           npx cap add android
           npm run assets
           npx cap sync android
+          # every build gets a higher version, so Android always offers "Update"
+          sed -i "s/versionCode 1$/versionCode ${GITHUB_RUN_NUMBER}/; s/versionName \"1.0\"/versionName \"0.1.${GITHUB_RUN_NUMBER}\"/" android/app/build.gradle
+          grep -E "versionCode|versionName" android/app/build.gradle
 
       # One fixed signing key, so a new APK installs over the old one without losing data
       - name: Use the repo's debug key
