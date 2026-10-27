@@ -363,7 +363,7 @@ img.mascot, .hdragon img { filter: drop-shadow(0 0 .6px var(--h-fg)) drop-shadow
 .avatar { width: 34px; height: 34px; flex: none; border-radius: 50%; display: grid; place-items: center; overflow: hidden; background: #D9D4CB; color: #111111; font: 700 14px var(--h-f-body); box-shadow: 0 0 0 2px var(--h-surface), 0 0 0 3.5px var(--h-fg); }
 .avatar img { width: 100%; height: 100%; object-fit: cover; }
 .nav a.me-tab { padding-block: 6px; }
-@media (max-width: 899px) { .nav { gap: 2px; } .nav a { min-width: 44px; padding: 0 10px; } .nav a.me-tab { padding: 0 8px; } .nav a.me-tab[aria-current="page"] { padding: 0 14px 0 7px; } }
+@media (max-width: 899px) { .nav { gap: 2px; } .nav a { min-width: 44px; padding: 0 10px; } .nav a.me-tab { padding: 0 8px; } .nav a.me-tab[aria-current="page"] { padding: 0 7px; } .nav a.me-tab .lbl { display: none; } }
 .set-group { display: flex; flex-direction: column; gap: 8px; }
 .set-group > h2 { margin: 0; font: 600 13px var(--h-f-body); color: var(--h-muted); padding-left: 4px; }
 .set-card { background: var(--h-surface); border-radius: var(--h-r); padding: 0 16px; }
@@ -375,6 +375,10 @@ img.mascot, .hdragon img { filter: drop-shadow(0 0 .6px var(--h-fg)) drop-shadow
 .profile { display: flex; align-items: center; gap: 14px; padding: 16px; }
 .profile .avatar { width: 56px; height: 56px; font-size: 22px; }
 .profile b { display: block; font-size: 17px; }
+.profile .pinfo { flex: 1; min-width: 0; }
+.profile .pname { display: block; width: 100%; border: 0; border-bottom: 1.5px dashed var(--h-line); border-radius: 0; background: transparent; padding: 2px 0 3px; margin-bottom: 4px; font-size: 17px; font-weight: 700; color: var(--h-fg); outline: none; }
+.profile .pname:focus { border-bottom-color: var(--h-fg); }
+.profile .pname::placeholder { color: var(--h-muted); font-weight: 600; }
 .profile small { display: flex; align-items: center; gap: 6px; color: var(--h-muted); font-size: 13px; }
 .profile small i { width: 6px; height: 6px; border-radius: 50%; background: var(--h-muted); }
 .profile small i[data-mode="sync"] { background: var(--h-ok); }
@@ -1131,11 +1135,13 @@ function segControl(key, opts, cur, onPick, label) {
 applyPrefs();
 
 let me = null;
+/* the name the user typed in Settings wins over the claude.ai profile name */
+const myName = () => (prefs.name || me?.name || "").trim();
 function avatarEl(cls) {
   const el = h("span", { class: "avatar" + (cls ? " " + cls : "") });
   const photo = me?.avatarUrl && !me.avatarUrl.startsWith("data:");
   if (photo) el.append(h("img", { alt: "", src: me.avatarUrl }));
-  else el.textContent = (me?.name || "Matthew").trim().charAt(0).toUpperCase();
+  else el.textContent = (myName() || "?").charAt(0).toUpperCase();
   return el;
 }
 (async () => {
@@ -1166,7 +1172,19 @@ function viewSettings() {
   return h("div", { class: "wrap" },
     h("div", { class: "head" }, h("div", {}, h("h1", {}, "Настройки"))),
     h("div", { class: "set-card profile" }, avatarEl(),
-      h("div", {}, h("b", {}, me?.name || "Вы"), h("small", {}, h("i", { "data-mode": mode }), $("#sync span")?.textContent || ""))),
+      h("div", { class: "pinfo" }, (() => {
+        const inp = h("input", { class: "pname", type: "text", value: myName(), placeholder: "Ваше имя", "aria-label": "Имя", maxlength: "40", autocomplete: "given-name", enterkeyhint: "done" });
+        const save = () => {
+          const v = inp.value.trim(); if (v === (prefs.name || "")) return;
+          setPref("name", v);
+          $("#nav-avatar").replaceWith(Object.assign(avatarEl(), { id: "nav-avatar" }));
+          $(".profile .avatar")?.replaceWith(avatarEl());
+          toast(v ? "Имя сохранено" : "Имя сброшено");
+        };
+        inp.addEventListener("change", save);
+        inp.addEventListener("keydown", e => { if (e.key === "Enter") inp.blur(); });
+        return inp;
+      })(), h("small", {}, h("i", { "data-mode": mode }), $("#sync span")?.textContent || ""))),
     group("Оформление", row("Тема", null, seg("theme", [["auto", "Авто"], ["light", "Светлая"], ["dark", "Тёмная"]]))),
     group("Миго",
       row("Живые глаза", "Смотрит по сторонам и следит за курсором", tgl("eyes", "Живые глаза")),
