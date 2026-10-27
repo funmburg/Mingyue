@@ -173,7 +173,11 @@ main { min-width: 0; padding-block: 28px 120px; padding-left: max(16px, env(safe
   .nav a { flex-direction: column; gap: 2px; padding: 6px 4px; font-size: 11px; flex: 1; }
   .nav a .count { display: none; }
   main { padding-block: 20px 110px; }
-  .phonebrand { display: flex !important; }
+  .head > div:first-child:has(> .phonebrand) { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 10px; align-items: center; }
+  .head > div:first-child > .phonebrand { display: flex !important; grid-row: 1 / span 3; }
+  .head > div:first-child > :not(.phonebrand) { grid-column: 2; }
+  .phonebrand > :not(.mascot) { display: none; }
+  .phonebrand .mascot { width: 40px !important; height: 41px !important; }
   .week { grid-template-columns: 1fr; }
   .notes { grid-template-columns: 1fr; }
   .notes.editing .nlist, .notes.editing .newnote { display: none; }
@@ -199,6 +203,8 @@ img.mascot, .hdragon img { filter: drop-shadow(0 0 .6px var(--h-fg)) drop-shadow
 .hiro[data-mood="happy"] .mouth { transform: scale(1.5, .7); }
 .hiro.talk .mouth { animation: hiro-talk .45s ease-in-out 2; }
 @keyframes hiro-talk { 50% { transform: scale(1.2, 1.9); } }
+.hiro[data-mood="idle"] .all { animation: hiro-breathe 3.6s ease-in-out infinite; }
+@keyframes hiro-breathe { 50% { transform: translateY(-2.5%) scale(1.01, .99); } }
 .hiro[data-mood="happy"] .all { animation: hiro-hop .5s ease-out 2; }
 @keyframes hiro-hop { 40% { transform: translateY(-6%) scale(1.02, .98); } }
 .hiro .zz { opacity: 0; transition: opacity .3s; font: 700 60px var(--h-f-body, sans-serif); fill: #1D2420; }
@@ -208,7 +214,7 @@ img.mascot, .hdragon img { filter: drop-shadow(0 0 .6px var(--h-fg)) drop-shadow
 :root[data-theme="dark"] .hiro { filter: invert(1); }
 @media (prefers-reduced-motion: reduce) {
   .hiro .eye { transition: none; }
-  .hiro.talk .mouth, .hiro[data-mood="happy"] .all, .hiro[data-mood="sleep"] .zz { animation: none; }
+  .hiro.talk .mouth, .hiro[data-mood="happy"] .all, .hiro[data-mood="idle"] .all, .hiro[data-mood="sleep"] .zz { animation: none; }
 }
 .hdragon { position: relative; width: 140px; height: 140px; }
 .hdragon img { position: absolute; left: 0; top: 0; width: 52px; height: auto; filter: none; }
@@ -312,7 +318,6 @@ img.mascot, .hdragon img { filter: drop-shadow(0 0 .6px var(--h-fg)) drop-shadow
   /* today on phone: day strip + timeline */
   .ph-head { display: flex; align-items: center; gap: 10px; }
   .ph-head > .mascot { width: 40px; height: 41px; }
-  .ph-head > .hiro { width: 52px; height: 54px; flex: none; margin: -6px -4px -6px -6px; }
   .ph-head .ttl { flex: 1; min-width: 0; }
   .ph-head h1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: clamp(24px, 8vw, 32px); }
   .ph-head .sub { margin-top: 2px; font-size: 13px; display: flex; align-items: center; gap: 6px; }
@@ -764,7 +769,7 @@ function editTask(t) {
 
 /* ---------- views ---------- */
 const mascotImg = () => h("img", { class: "mascot", alt: "", src: MASCOT_SRC });
-function blank(text) { return h("div", { class: "blank" }, mascotImg(), h("div", {}, text)); }
+function blank(text, live) { return h("div", { class: "blank" }, live ? HIRO_EL : mascotImg(), h("div", {}, text)); }
 function header(eyebrow, title, sub, right) {
   return h("div", { class: "head" }, h("div", {},
     h("div", { class: "phonebrand", id: "pbsync", "data-mode": mode }, mascotImg(), h("i"), h("span", {}, $("#sync span")?.textContent || "")),
@@ -868,7 +873,7 @@ function viewHabits() {
             const k = ymd(d), on = !!hb.log?.[k];
             return h("button", { class: "dot" + (on ? " on" : "") + (k === t ? " today" : ""), "aria-pressed": String(on), "aria-label": `${hb.name}, ${dateLabel(k)}`, onclick: () => toggleHabit(hb, k) }, d.getDate());
           })), x);
-      }))) : h("div", { class: "list" }, blank("Здесь будут привычки. Добавьте одну и отмечайте каждый день.")));
+      }))) : h("div", { class: "list" }, blank("Здесь будут привычки. Добавьте одну и отмечайте каждый день.", true)));
 }
 
 let openNote = null, noteTimer = null;
@@ -892,7 +897,7 @@ function viewNotes() {
       h("div", { class: "bar" }, h("button", { class: "btn back", onclick: () => { openNote = null; render(); } }, ico("i-left"), "Все заметки"),
         h("span", { class: "grow" }, "Изменено " + new Date(cur.updatedAt).toLocaleString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })), delBtn),
       ta);
-  } else editor = h("div", { class: "editor" }, blank(notes.length ? "Выберите заметку слева" : "Заметок пока нет. Создайте первую."));
+  } else editor = h("div", { class: "editor" }, blank(notes.length ? "Выберите заметку слева" : "Заметок пока нет. Создайте первую.", true));
   return h("div", { class: "wrap wide", style: "max-width:1100px" },
     header("Мысли, списки, идеи", "Заметки", null, h("button", { class: "btn primary newnote", onclick: create }, "Новая заметка")),
     h("div", { class: "notes" + (cur ? " editing" : "") },
@@ -1057,7 +1062,7 @@ function viewTodayPhone() {
   const line = [...evs, ...items].sort((a, b) => (a.time || "").localeCompare(b.time || ""));
   const slot = h("button", { class: "slot", onclick: () => addSheet(selDay) }, ico("i-plus"), items.length ? "Свободно, добавить задачу" : "Добавить задачу на этот день");
   return h("div", { class: "wrap" },
-    h("div", { class: "ph-head" }, isToday ? HIRO_EL : mascotImg(),
+    h("div", { class: "ph-head" }, mascotImg(),
       h("div", { class: "ttl" }, h("h1", {}, title),
         h("div", { class: "sub" }, h("i", { "data-mode": mode, title: $("#sync span")?.textContent || "" }),
           `${sel.getDate()} ${MON_GEN[sel.getMonth()]}` + (items.length ? (left ? ` · ${left} из ${items.length}` : " · всё сделано") : ""))),
@@ -1071,7 +1076,7 @@ function viewTodayPhone() {
     })) : null,
     overdue.length ? h("section", { class: "sec overdue" }, h("h2", {}, "Просрочено", h("span", { class: "n" }, overdue.length)), h("div", { class: "tline" }, overdue.map(x => card(x, { time: true })))) : null,
     h("section", { class: "sec" }, h("div", { class: "tline" },
-      line.length ? line.map(row) : h("div", { class: "blank" }, mascotImg(), h("div", {}, isToday ? "На сегодня пусто. Миго отдыхает." : "На этот день пока ничего.")),
+      line.length ? line.map(row) : h("div", { class: "blank" }, isToday ? HIRO_EL : mascotImg(), h("div", {}, isToday ? "На сегодня пусто. Миго отдыхает." : "На этот день пока ничего.")),
       slot)),
     inbox.length ? h("section", { class: "sec" }, h("h2", {}, "Входящие", h("span", { class: "n" }, inbox.length)), h("div", { class: "tline" }, inbox.map(x => card(x)))) : null);
 }
