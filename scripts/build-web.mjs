@@ -12,8 +12,13 @@ const head = `<!doctype html><html lang="ru"><head><meta charset="utf-8">
 :root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 html,body{margin:0;padding:0}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body::before{content:"";position:fixed;z-index:45;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:var(--h-bg,#fff);pointer-events:none}
-</style></head><body>
+</style>
+<script>
+// Android's system font size would scale the whole layout up and break it; the app keeps its own sizes
+window.Capacitor?.Plugins?.TextZoom?.set({ value: 1 }).catch(() => {});
+</script></head><body>
 `;
 mkdirSync(new URL("../www/", import.meta.url), { recursive: true });
 writeFileSync(new URL("../www/index.html", import.meta.url), head + body + "\n</body></html>\n");
