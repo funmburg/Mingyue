@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Mingyue widget palette: warm monochrome, red only for overdue -->
+    <color name="mw_card">#FFFFFF</color>
+    <color name="mw_ink">#111111</color>
+    <color name="mw_soft">#5A5650</color>
+    <color name="mw_muted">#8A857D</color>
+    <color name="mw_late">#C2362B</color>
+
+    <string name="widget_today_label">Сегодня</string>
+    <string name="widget_today_desc">Задачи на сегодня, отмечаются прямо с экрана</string>
+    <string name="widget_migo_label">Миго</string>
+    <string name="widget_migo_desc">Миго здоровается и считает оставшиеся дела</string>
+    <string name="widget_quickadd_label">Быстро добавить</string>
+    <string name="widget_quickadd_desc">Новая задача в одно касание</string>
+
+    <style name="MingyueQuickAdd" parent="android:Theme.DeviceDefault.Light.Dialog.NoActionBar">
+        <item name="android:windowBackground">@drawable/widget_card</item>
+        <item name="android:windowMinWidthMajor">90%</item>
+        <item name="android:windowMinWidthMinor">90%</item>
+        <item name="android:colorAccent">@color/mw_ink</item>
+    </style>
+</resources>

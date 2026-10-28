@@ -44,6 +44,8 @@ jobs:
           sed -i 's#</manifest>#    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />\n</manifest>#' android/app/src/main/AndroidManifest.xml
           # Android's own launch screen: blank, in the splash colour
           node scripts/quiet-splash.mjs
+          # home-screen widgets: Сегодня, Миго, Быстро добавить
+          node scripts/add-widgets.mjs
           # every build gets a higher version, so Android always offers "Update"
           sed -i "s/versionCode 1$/versionCode ${GITHUB_RUN_NUMBER}/; s/versionName \"1.0\"/versionName \"0.1.${GITHUB_RUN_NUMBER}\"/" android/app/build.gradle
           grep -E "versionCode|versionName" android/app/build.gradle

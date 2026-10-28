@@ -23,5 +23,42 @@ window.Capacitor?.Plugins?.TextZoom?.set({ value: 1 }).catch(() => {});
 </script></head><body>
 `;
 mkdirSync(new URL("../www/", import.meta.url), { recursive: true });
-writeFileSync(new URL("../www/index.html", import.meta.url), head + body + "\n</body></html>\n");
+// Home-screen widgets (APK only). Runs after the app's script, so it uses the app's own globals:
+// after every save it sends the widgets the tasks they show, and it applies what was done
+// on the widgets (a task marked done, a quick-added task) with the app's own functions.
+const widgets = `<script>
+(() => {
+  const W = window.Capacitor?.Plugins?.MingyueWidgets;
+  if (!W) return;
+  let timer;
+  const push = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      const td = today(), until = ymd(addDays(new Date(), 1));
+      const list = tasks().filter(x => x.date && x.date <= until && (!x.done || x.date >= td))
+        .map(x => ({ id: x.id, title: x.title, date: x.date, time: x.time || "", done: !!x.done, prio: !!x.prio }));
+      W.update({ data: JSON.stringify({ name: myName(), tasks: list }) }).catch(() => {});
+    }, 300);
+  };
+  const setItem = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (k, v) {
+    setItem.call(this, k, v);
+    if (this === localStorage && (k === LS || k === PREFS_KEY)) push();
+  };
+  const apply = async () => {
+    if (!ready) return void setTimeout(apply, 400);
+    const { actions = [] } = await W.takeActions().catch(() => ({}));
+    for (const a of actions) {
+      const t = a.type === "toggle" && S.tasks[a.id];
+      if (t && !!t.done !== a.done) toggleTask(t);
+      if (a.type === "add" && a.text && addTask(a.text, today())) toast("Добавлено: " + a.text);
+    }
+    push();
+  };
+  W.addListener("actions", apply);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) apply(); });
+  apply();
+})();
+</script>`;
+writeFileSync(new URL("../www/index.html", import.meta.url), head + body + "\n" + widgets + "\n</body></html>\n");
 console.log("www/index.html written");
