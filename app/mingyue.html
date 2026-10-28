@@ -1535,7 +1535,72 @@ const GSRV = "Google Calendar";
 const GC = { state: "idle", code: "", msg: "", months: {}, byDay: {}, mcp: undefined };
 if (!("gcal" in prefs)) prefs.gcal = true;
 const gNext = k => { const [y, m] = k.split("-").map(Number); return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`; };
-const gMcp = () => GC.mcp !== undefined ? Promise.resolve(GC.mcp) : (window.claude?.use ? claude.use("mcp") : Promise.resolve(null)).catch(() => null).then(m => (GC.mcp = m));
+const gMcp = () => GC.mcp !== undefined ? Promise.resolve(GC.mcp) : (GNATIVE ? Promise.resolve(gNative()) : window.claude?.use ? claude.use("mcp") : Promise.resolve(null)).catch(() => null).then(m => (GC.mcp = m));
+/* Android app: there is no claude.ai connector, so sign in to Google natively and call the Calendar API directly.
+   Answers in the same shape as the connector's list_events / create_event, so the rest of the code doesn't care. */
+const GNATIVE = window.Capacitor?.isNativePlatform?.() ? window.Capacitor.Plugins?.SocialLogin : null;
+const GWEB_ID = "1049164229791-b5ka0nlnsu47tm5igsmsdr1th1j7qoro.apps.googleusercontent.com";
+const GSCOPE = "https://www.googleapis.com/auth/calendar.events", GTOK = "mingyue.gtoken";
+let gInit, gPending;
+function gToken(interactive) {
+  if (!interactive) try { const t = JSON.parse(localStorage.getItem(GTOK)); if (t?.exp > Date.now() + 60000) return Promise.resolve(t.v); } catch {}
+  // several months load at once: share one sign-in
+  if (!interactive && gPending) return gPending;
+  const p = gLogin(interactive).finally(() => { if (gPending === p) gPending = null; });
+  if (!interactive) gPending = p;
+  return p;
+}
+async function gLogin(interactive) {
+  gInit ||= GNATIVE.initialize({ google: { webClientId: GWEB_ID } });
+  await gInit;
+  let r;
+  try {
+    r = await GNATIVE.login({ provider: "google", options: interactive ? { scopes: [GSCOPE] }
+      : { scopes: [GSCOPE], style: "bottom", filterByAuthorizedAccounts: true, autoSelectEnabled: true } });
+  } catch (e) { throw Object.assign(new Error(e?.message || "sign-in failed"), { code: "native_signin" }); }
+  const at = r?.result?.accessToken?.token;
+  if (!at) throw Object.assign(new Error("no access token"), { code: "native_signin" });
+  try { localStorage.setItem(GTOK, JSON.stringify({ v: at, exp: Date.now() + 50 * 60000 })); } catch {}
+  return at;
+}
+async function gSignIn() {
+  try { await gToken(true); GC.state = "idle"; gReload(); }
+  catch (e) { toast("Не удалось войти в Google" + (e?.message ? ": " + e.message.slice(0, 100) : "")); }
+}
+function gNative() {
+  const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const api = async (path, init = {}, again = true) => {
+    const tok = await gToken(false);
+    let res;
+    try {
+      res = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/" + path,
+        { ...init, headers: { Authorization: "Bearer " + tok, "Content-Type": "application/json" } });
+    } catch { throw Object.assign(new Error("offline"), { code: "upstream_error" }); }
+    if (res.status === 401 && again) { try { localStorage.removeItem(GTOK); } catch {} return api(path, init, false); }
+    if (res.status === 401 || res.status === 403) throw Object.assign(new Error("HTTP " + res.status), { code: "native_signin" });
+    if (!res.ok) throw Object.assign(new Error("HTTP " + res.status), { code: "upstream_error", retryable: res.status >= 500 || res.status === 429 });
+    return res.json();
+  };
+  const when = (v, allDay) => allDay ? { date: v.slice(0, 10) } : { dateTime: v, timeZone: TZ };
+  return {
+    async callTool(_server, tool, input) {
+      if (tool === "list_events") {
+        const q = new URLSearchParams({ timeMin: new Date(input.startTime).toISOString(), timeMax: new Date(input.endTime).toISOString(),
+          singleEvents: "true", orderBy: "startTime", maxResults: String(input.pageSize || 250), timeZone: TZ });
+        if (input.pageToken) q.set("pageToken", input.pageToken);
+        const p = await api("events?" + q);
+        return { payload: { events: p.items || [], nextPageToken: p.nextPageToken || null } };
+      }
+      if (tool === "create_event") {
+        const ev = await api("events", { method: "POST", body: JSON.stringify({ summary: input.summary, description: input.description,
+          start: when(input.startTime, input.allDay), end: when(input.endTime, input.allDay) }) });
+        return { payload: ev };
+      }
+      throw Object.assign(new Error("unknown tool " + tool), { code: "upstream_error" });
+    },
+    invalidate: () => Promise.resolve(),
+  };
+}
 function gIndex() {
   const by = {}, own = new Set(tasks().map(t => t.gcal?.id).filter(Boolean));
   for (const list of Object.values(GC.months)) if (Array.isArray(list)) for (const e of list) {
@@ -1624,6 +1689,7 @@ const G_HELP = {
   not_in_manifest: "Доступ к календарю для Mingyue не разрешён.",
   approval_required: "Нужно разрешить Mingyue доступ к календарю.",
   blocked_by_policy: "Доступ к календарю запрещён настройками организации.",
+  native_signin: "Войдите в Google, чтобы видеть события календаря.",
 };
 function gStatusText() {
   if (!prefs.gcal) return "Выключен";
@@ -1645,6 +1711,7 @@ function gErrBox() {
   if (!prefs.gcal || GC.state !== "err") return null;
   const fixable = GC.code === "not_in_manifest" || GC.code === "approval_required" || GC.code === "server_unavailable" || GC.code === "upstream_error";
   return h("div", { class: "gerr" }, h("span", {}, gStatusText()),
+    GC.code === "native_signin" ? h("button", { class: "btn", onclick: gSignIn }, "Войти в Google") :
     fixable ? h("button", { class: "btn", onclick: () => gReload() }, GC.code === "not_in_manifest" || GC.code === "approval_required" ? "Разрешить" : "Повторить") : null);
 }
 async function sendToCalendar(t, vals, btn) {

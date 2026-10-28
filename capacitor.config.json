@@ -1,5 +1,10 @@
 {
   "appId": "com.funmburg.mingyue",
   "appName": "Mingyue",
-  "webDir": "www"
+  "webDir": "www",
+  "plugins": {
+    "SocialLogin": {
+      "providers": { "google": true, "facebook": false, "apple": false, "twitter": false }
+    }
+  }
 }

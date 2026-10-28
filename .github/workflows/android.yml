@@ -37,6 +37,8 @@ jobs:
           npx cap add android
           npm run assets
           npx cap sync android
+          # MainActivity that hands Google consent results to the sign-in plugin
+          cp ci/android/MainActivity.java android/app/src/main/java/com/funmburg/mingyue/MainActivity.java
           # every build gets a higher version, so Android always offers "Update"
           sed -i "s/versionCode 1$/versionCode ${GITHUB_RUN_NUMBER}/; s/versionName \"1.0\"/versionName \"0.1.${GITHUB_RUN_NUMBER}\"/" android/app/build.gradle
           grep -E "versionCode|versionName" android/app/build.gradle
@@ -72,3 +74,16 @@ jobs:
             --title "Последняя сборка" \
             --notes "Сборка $(date -u +'%d.%m.%Y %H:%M') UTC, коммит ${GITHUB_SHA::7}. Скачайте mingyue.apk и откройте его на телефоне." \
             --latest
+
+      # Test builds from "next" go to a separate pre-release, so the main download stays untouched
+      - name: Publish to the "test" pre-release
+        if: github.ref == 'refs/heads/next'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp out/*.apk out/mingyue-test.apk
+          gh release delete test --yes --cleanup-tag || true
+          gh release create test out/mingyue-test.apk \
+            --target "${GITHUB_SHA}" --prerelease \
+            --title "Тестовая сборка" \
+            --notes "Тестовая сборка $(date -u +'%d.%m.%Y %H:%M') UTC, коммит ${GITHUB_SHA::7}. Ставится поверх обычной."
