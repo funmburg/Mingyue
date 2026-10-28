@@ -39,6 +39,8 @@ jobs:
           npx cap sync android
           # MainActivity that hands Google consent results to the sign-in plugin
           cp ci/native/MainActivity.java android/app/src/main/java/com/funmburg/mingyue/MainActivity.java
+          # home-screen widgets: Сегодня, Миго, Быстро добавить
+          node scripts/add-widgets.mjs
           # every build gets a higher version, so Android always offers "Update"
           sed -i "s/versionCode 1$/versionCode ${GITHUB_RUN_NUMBER}/; s/versionName \"1.0\"/versionName \"0.1.${GITHUB_RUN_NUMBER}\"/" android/app/build.gradle
           grep -E "versionCode|versionName" android/app/build.gradle
