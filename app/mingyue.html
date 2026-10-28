@@ -969,6 +969,18 @@ const EN = {
   "сегодня": "today",
   "скоро": "soon",
   "Уведомления": "Notifications",
+  "Облако": "Cloud",
+  "Копия в облаке": "Cloud backup",
+  "Включено": "On",
+  "Отключить облако? Данные на телефоне останутся.": "Turn off the cloud? Data on this phone stays.",
+  "Отключить": "Turn off",
+  "Войдите через Google, чтобы задачи не пропали при смене телефона": "Sign in with Google so your tasks survive a new phone",
+  "Войти": "Sign in",
+  "Сохраняется в облаке": "Saved to the cloud",
+  "Облако не настроено": "Cloud is not set up",
+  "Нет сети, сохранится позже": "Offline, will save later",
+  "Google не вернул токен": "Google returned no token",
+  "Готово, данные сохраняются в облаке": "Done, your data is saved to the cloud",
   "Работают в приложении для Android": "Work in the Android app",
   "Уведомления запрещены, разрешите их в настройках телефона": "Notifications are off, allow them in phone settings",
   "Для задач со временем": "For tasks with a time",
@@ -1102,7 +1114,7 @@ function setSync(m, text) {
 async function initStore() {
   loadLocal(); render();
   const use = window.claude?.use;
-  if (!use) { setSync("local", tr("Сохраняется на этом устройстве")); return markReady(); }
+  if (!use) { setSync("local", tr("Сохраняется на этом устройстве")); markReady(); return fbSync(true); }
   const [db, user] = await Promise.all([use("db"), use("user")]);
   const id = user ? await user.id() : null;
   if (!db || !id) { setSync("local", tr("Войдите в claude.ai для синхронизации")); return markReady(); }
@@ -1121,15 +1133,15 @@ async function initStore() {
 }
 const pending = {};
 function put(c, obj) {
-  S[c][obj.id] = obj; render();
-  if (!base) return saveLocal();
+  obj._at = Date.now(); S[c][obj.id] = obj; render();
+  if (!base) { fbDirty(c, obj.id); return saveLocal(); }
   const key = c + "/" + obj.id;
   const write = () => base.collection(c).doc(obj.id).set(JSON.parse(JSON.stringify(obj))).catch(e => toast(e?.code === "quota_exceeded" ? tr("Хранилище заполнено, удалите старое") : tr("Не сохранилось, проверьте сеть")));
   pending[key] = (pending[key] || Promise.resolve()).then(write);
 }
 function del(c, id) {
   delete S[c][id]; render();
-  if (!base) return saveLocal();
+  if (!base) { fbDirty(c, id, true); return saveLocal(); }
   base.collection(c).doc(id).delete().catch(() => toast(tr("Не удалилось, проверьте сеть")));
 }
 let toastT;
@@ -1661,6 +1673,9 @@ function viewSettings() {
         inp.addEventListener("keydown", e => { if (e.key === "Enter") inp.blur(); });
         return inp;
       })(), h("small", {}, h("i", { "data-mode": mode }), $("#sync span")?.textContent || ""))),
+    GNATIVE ? group(tr("Облако"), fbUser()
+      ? row(tr("Копия в облаке"), fbUser().email || tr("Включено"), h("button", { class: "btn", onclick: () => confirm(tr("Отключить облако? Данные на телефоне останутся.")) && fbSignOut() }, tr("Отключить")))
+      : row(tr("Копия в облаке"), tr("Войдите через Google, чтобы задачи не пропали при смене телефона"), h("button", { class: "btn gbtn", onclick: fbConnect }, tr("Войти")))) : null,
     group(tr("Оформление"), row(tr("Тема"), null, seg("theme", [["auto", tr("Авто")], ["light", tr("Светлая")], ["dark", tr("Тёмная")]])),
       row(tr("Язык"), null, segControl("pref-lang", [["ru", "Русский"], ["en", "English"]], LANG, v => { setPref("lang", v); setTimeout(() => location.reload(), 280); }, tr("Язык")))),
     group(tr("Миго"),
@@ -1790,11 +1805,115 @@ async function gLogin(interactive) {
   const at = r?.result?.accessToken?.token;
   if (!at) throw Object.assign(new Error("no access token"), { code: "native_signin" });
   try { localStorage.setItem(GTOK, JSON.stringify({ v: at, exp: Date.now() + 50 * 60000 })); localStorage.setItem(GTOK + ".ok", "1"); } catch {}
+  const idt = r?.result?.idToken;
+  if (interactive && idt && !fbUser()) await fbSignIn(idt).catch(e => { FB.err = e?.message || "firebase"; });
   return at;
 }
 async function gSignIn() {
   try { await gToken(true); GC.state = "idle"; gReload(); }
   catch (e) { toast(tr("Не удалось войти в Google") + (e?.message ? ": " + e.message.slice(0, 100) : "")); }
+}
+/* ---------- cloud copy in Firebase (Android app): sign in with the Google account, then every change goes to Firestore ---------- */
+const FB = { key: "AIzaSyAMieh7P0wYUOg0_BXCX8_DXfgx6HGWozE", project: "mingyue-44167", ls: "mingyue.fb", q: "mingyue.fbq", gone: "mingyue.fbgone", tok: null, busy: null, timer: 0, pulled: 0, err: "" };
+const fbRead = k => { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch { return null; } };
+const fbWrite = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+const fbUser = () => GNATIVE ? fbRead(FB.ls) : null;
+const FS = () => `https://firestore.googleapis.com/v1/projects/${FB.project}/databases/(default)/documents`;
+async function fbPost(url, body) {
+  const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(j?.error?.message || "HTTP " + r.status), { status: r.status });
+  return j;
+}
+/* Google id token (from the sign-in plugin) -> Firebase session that lives on through its refresh token */
+async function fbSignIn(googleIdToken) {
+  const j = await fbPost(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=${FB.key}`,
+    { postBody: "id_token=" + encodeURIComponent(googleIdToken) + "&providerId=google.com", requestUri: "http://localhost", returnSecureToken: true });
+  fbWrite(FB.ls, { uid: j.localId, email: j.email || "", rt: j.refreshToken });
+  FB.tok = { v: j.idToken, exp: Date.now() + (+j.expiresIn || 3600) * 1000 - 120000 };
+  FB.err = ""; await fbSync(true);
+}
+async function fbToken() {
+  if (FB.tok && FB.tok.exp > Date.now()) return FB.tok.v;
+  const u = fbUser(); if (!u) throw new Error("signed out");
+  const r = await fetch(`https://securetoken.googleapis.com/v1/token?key=${FB.key}`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: "grant_type=refresh_token&refresh_token=" + encodeURIComponent(u.rt) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { if (r.status === 400) fbWrite(FB.ls, null); throw new Error(j?.error?.message || "token"); }
+  fbWrite(FB.ls, { ...u, rt: j.refresh_token || u.rt });
+  FB.tok = { v: j.id_token, exp: Date.now() + (+j.expires_in || 3600) * 1000 - 120000 };
+  return FB.tok.v;
+}
+async function fbApi(path, init = {}) {
+  const r = await fetch(FS() + path, { ...init, headers: { "content-type": "application/json", authorization: "Bearer " + await fbToken(), ...(init.headers || {}) } });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(j?.error?.message || "HTTP " + r.status), { status: r.status });
+  return j;
+}
+/* a change is queued first (survives being offline or the app being closed), then sent in one batch */
+function fbDirty(c, id, gone) {
+  if (!fbUser()) return;
+  const k = c + "/" + id, q = fbRead(FB.q) || {}, g = fbRead(FB.gone) || {};
+  if (gone) g[k] = Date.now(); else delete g[k];
+  q[k] = 1; fbWrite(FB.q, q); fbWrite(FB.gone, g);
+  clearTimeout(FB.timer); FB.timer = setTimeout(() => fbFlush().catch(() => {}), 1500);
+}
+async function fbFlush() {
+  const u = fbUser(), q = fbRead(FB.q) || {}, keys = Object.keys(q); if (!u || !keys.length) return;
+  const g = fbRead(FB.gone) || {}, root = `projects/${FB.project}/databases/(default)/documents/users/${u.uid}/`;
+  for (let i = 0; i < keys.length; i += 400) {
+    const part = keys.slice(i, i + 400);
+    const writes = part.map(k => {
+      const [c, id] = [k.slice(0, k.indexOf("/")), k.slice(k.indexOf("/") + 1)], obj = S[c]?.[id];
+      const at = obj ? obj._at || obj.createdAt || 1 : g[k] || Date.now();
+      return { update: { name: root + c + "/" + encodeURIComponent(id), fields: obj ? { d: { stringValue: JSON.stringify(obj) }, at: { integerValue: String(at) } } : { gone: { booleanValue: true }, at: { integerValue: String(at) } } } };
+    });
+    await fbApi(":commit", { method: "POST", body: JSON.stringify({ writes }) });
+    const now = fbRead(FB.q) || {}; for (const k of part) delete now[k]; fbWrite(FB.q, now);
+  }
+}
+/* pull everything, newer side wins per item, then send what the phone has newer */
+async function fbPull() {
+  const u = fbUser(); if (!u) return;
+  const g = fbRead(FB.gone) || {}, q = fbRead(FB.q) || {}, seen = new Set(); let changed = false;
+  for (const c of COLLS) {
+    let page = "";
+    do {
+      const j = await fbApi(`/users/${u.uid}/${c}?pageSize=300${page ? "&pageToken=" + encodeURIComponent(page) : ""}`);
+      for (const d of j.documents || []) {
+        const id = decodeURIComponent(d.name.slice(d.name.lastIndexOf("/") + 1)), k = c + "/" + id, f = d.fields || {};
+        const rat = +(f.at?.integerValue || 0), loc = S[c][id], lat = Math.max(loc ? loc._at || loc.createdAt || 1 : 0, g[k] || 0);
+        seen.add(k);
+        if (rat > lat) {
+          if (f.gone?.booleanValue) { if (loc) { delete S[c][id]; changed = true; } g[k] = rat; }
+          else { try { S[c][id] = JSON.parse(f.d.stringValue); delete g[k]; changed = true; } catch {} }
+        } else if (lat > rat) q[k] = 1;
+      }
+      page = j.nextPageToken || "";
+    } while (page);
+    for (const id in S[c]) if (!seen.has(c + "/" + id)) q[c + "/" + id] = 1;
+  }
+  fbWrite(FB.gone, g); fbWrite(FB.q, q);
+  if (changed) { saveLocal(); render(); }
+}
+async function fbSync(force) {
+  if (!fbUser()) return;
+  if (!force && Date.now() - FB.pulled < 30000) return fbFlush().catch(() => {});
+  FB.busy ||= (async () => {
+    try { await fbPull(); await fbFlush(); FB.pulled = Date.now(); FB.err = ""; setSync("sync", tr("Сохраняется в облаке")); }
+    catch (e) { FB.err = e?.message || "error"; if (e?.status === 403 || e?.status === 404) setSync("local", tr("Облако не настроено")); else setSync("local", tr("Нет сети, сохранится позже")); }
+    finally { FB.busy = null; }
+  })();
+  return FB.busy;
+}
+async function fbConnect() {
+  try { await gToken(true); if (!fbUser()) throw new Error(FB.err || tr("Google не вернул токен")); toast(tr("Готово, данные сохраняются в облаке")); }
+  catch (e) { toast(tr("Не удалось войти в Google") + (e?.message ? ": " + e.message.slice(0, 100) : "")); }
+  render();
+}
+function fbSignOut() { fbWrite(FB.ls, null); fbWrite(FB.q, null); fbWrite(FB.gone, null); FB.tok = null; setSync("local", tr("Сохраняется на этом устройстве")); render(); }
+if (GNATIVE) {
+  addEventListener("online", () => fbSync(true));
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) fbSync(); });
 }
 function gNative() {
   const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
