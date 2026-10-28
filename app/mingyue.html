@@ -1906,7 +1906,14 @@ async function fbSync(force) {
   return FB.busy;
 }
 async function fbConnect() {
-  try { await gToken(true); if (!fbUser()) throw new Error(FB.err || tr("Google не вернул токен")); toast(tr("Готово, данные сохраняются в облаке")); }
+  // only name and e-mail: the cloud must not need the calendar permission (Google checks apps that ask for it)
+  try {
+    gInit ||= GNATIVE.initialize({ google: { webClientId: GWEB_ID } }); await gInit;
+    const r = await GNATIVE.login({ provider: "google", options: { scopes: ["profile", "email"] } });
+    const idt = r?.result?.idToken; if (!idt) throw new Error(tr("Google не вернул токен"));
+    await fbSignIn(idt); if (FB.err) throw new Error(FB.err);
+    toast(tr("Готово, данные сохраняются в облаке"));
+  }
   catch (e) { toast(tr("Не удалось войти в Google") + (e?.message ? ": " + e.message.slice(0, 100) : "")); }
   render();
 }
