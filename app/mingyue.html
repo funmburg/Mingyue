@@ -968,6 +968,19 @@ const EN = {
   "завтра": "tomorrow",
   "сегодня": "today",
   "скоро": "soon",
+  "Уведомления": "Notifications",
+  "Работают в приложении для Android": "Work in the Android app",
+  "Уведомления запрещены, разрешите их в настройках телефона": "Notifications are off, allow them in phone settings",
+  "Для задач со временем": "For tasks with a time",
+  "Нет": "Off",
+  "В срок": "On time",
+  "10 мин": "10 min",
+  "1 ч": "1 h",
+  "Утренний план": "Morning plan",
+  "В 9:00: сколько дел на сегодня": "At 9:00: what's on today",
+  "Сейчас": "Now",
+  "Через час": "In an hour",
+  "Через 10 минут": "In 10 minutes",
   "Данные": "Data",
   "Добавлено в Google Календарь": "Added to Google Calendar",
   "Здесь будут привычки. Добавьте одну и отмечайте каждый день.": "Your habits will live here. Add one and check it off every day.",
@@ -1330,6 +1343,51 @@ function viewNotes() {
 let lastAllDone = false;
 const VIEWS = { today: viewToday, week: viewWeek, habits: viewHabits, notes: viewNotes };
 const view = () => (location.hash.slice(1) in VIEWS ? location.hash.slice(1) : "today");
+/* ---------- reminders: local notifications, Android app only ---------- */
+const LN = window.Capacitor?.isNativePlatform?.() ? window.Capacitor.Plugins?.LocalNotifications : null;
+const REM = { perm: LN ? "prompt" : "none", sig: "", timer: 0, chan: false };
+const nid = s => { let x = 7; for (const c of s) x = (x * 31 + c.charCodeAt(0)) | 0; return (Math.abs(x) % 2e9) + 1; };
+function remindersSoon() { if (!LN || !ready) return; clearTimeout(REM.timer); REM.timer = setTimeout(() => syncReminders().catch(() => {}), 700); }
+function remindersPlan() {
+  const lead = prefs.remind, now = Date.now(), horizon = now + 14 * 864e5, all = tasks(), list = [];
+  if (lead !== "off") for (const t of all) {
+    if (t.done || !t.date || !t.time) continue;
+    const at = new Date(t.date + "T" + t.time).getTime() - +lead * 6e4;
+    if (at <= now || at > horizon) continue;
+    const when = lead === "0" ? tr("Сейчас") : lead === "60" ? tr("Через час") : tr("Через 10 минут");
+    list.push({ id: nid("t" + t.id), title: t.title, body: when + " · " + t.time, at, extra: { day: t.date } });
+  }
+  if (prefs.digest) for (let i = 0; i < 7; i++) {
+    const day = ymd(addDays(new Date(), i)), at = new Date(day + "T" + (prefs.digestAt || "09:00")).getTime();
+    if (at <= now) continue;
+    const open = all.filter(x => !x.done && (x.date === day || (i === 0 && x.date && x.date < day)));
+    if (!open.length) continue;
+    const names = open.slice(0, 3).map(x => x.title).join(", ") + (open.length > 3 ? "…" : "");
+    list.push({ id: nid("d" + day), title: LANG === "en" ? `${open.length} ${open.length === 1 ? "task" : "tasks"} today` : `Сегодня ${open.length} ${plural(open.length, "дело", "дела", "дел")}`, body: names, at, extra: { day } });
+  }
+  return list.sort((a, b) => a.at - b.at).slice(0, 60);
+}
+async function syncReminders(ask) {
+  const list = remindersPlan(), sig = JSON.stringify(list);
+  if (sig === REM.sig && !ask) return;
+  let p = await LN.checkPermissions();
+  if (p.display !== "granted" && (list.length || ask) && (ask || p.display !== "denied")) p = await LN.requestPermissions();
+  REM.perm = p.display;
+  if (p.display !== "granted") { if (ask) render(); return; }
+  if (!REM.chan) { await LN.createChannel({ id: "reminders", name: tr("Напоминания"), importance: 4, vibration: true }).catch(() => {}); REM.chan = true; }
+  const { notifications: old } = await LN.getPending();
+  if (old.length) await LN.cancel({ notifications: old.map(n => ({ id: n.id })) });
+  const exact = p.exact_alarm === "granted";
+  if (list.length) await LN.schedule({ notifications: list.map(n => ({ id: n.id, title: n.title, body: n.body, channelId: "reminders", extra: n.extra, isExactNotification: exact, schedule: { at: new Date(n.at), allowWhileIdle: true } })) });
+  REM.sig = sig;
+  if (ask) render();
+}
+LN?.addListener("localNotificationActionPerformed", e => {
+  const day = e.notification?.extra?.day;
+  if (day && typeof selDay !== "undefined") selDay = day;
+  location.hash = "#today"; render();
+});
+LN?.checkPermissions().then(p => { REM.perm = p.display; }).catch(() => {});
 function render() {
   const a = document.activeElement, fid = a?.id, sel = fid && "selectionStart" in a ? [a.selectionStart, a.selectionEnd, a.value] : null;
   const v = view();
@@ -1337,6 +1395,7 @@ function render() {
   if (!ready) { main.replaceChildren(h("div", { class: "loading" }, DRAGON_EL, tr("Загружаю планер…"))); HiroDragon.start(); return; }
   HiroDragon.stop(); $("#parking").append(DRAGON_EL);
   main.replaceChildren(VIEWS[v]());
+  remindersSoon();
   const td = tasks().filter(x => x.date === today()), allDone = td.length > 0 && td.every(x => x.done);
   if (allDone !== lastAllDone) { lastAllDone = allDone; Hiro.mood(allDone ? "sleep" : "idle"); }
   for (const el of document.querySelectorAll("#nav a")) el.toggleAttribute("aria-current", el.dataset.v === v) && el.setAttribute("aria-current", "page");
@@ -1508,7 +1567,7 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden && se
 $("#nav a[data-v=today]").addEventListener("click", () => { if (view() === "today") { selDay = today(); render(); } });
 /* settings: theme, Migo, export; kept per device */
 const PREFS_KEY = "mingyue.prefs";
-const prefs = (() => { try { return { theme: "auto", eyes: true, sleep: true, ...JSON.parse(localStorage.getItem(PREFS_KEY) || "{}") }; } catch { return { theme: "auto", eyes: true, sleep: true }; } })();
+const prefs = (() => { try { return { theme: "auto", eyes: true, sleep: true, remind: "10", digest: true, ...JSON.parse(localStorage.getItem(PREFS_KEY) || "{}") }; } catch { return { theme: "auto", eyes: true, sleep: true, remind: "10", digest: true }; } })();
 function applyPrefs() {
   const root = document.documentElement;
   if (prefs.theme === "auto") root.removeAttribute("data-theme"); else root.dataset.theme = prefs.theme;
@@ -1607,8 +1666,11 @@ function viewSettings() {
     group(tr("Миго"),
       row(tr("Живые глаза"), tr("Смотрит по сторонам и следит за курсором"), tgl("eyes", tr("Живые глаза"))),
       row(tr("Засыпание"), tr("Засыпает, когда все задачи на сегодня сделаны"), tgl("sleep", tr("Засыпание")))),
+    group(tr("Уведомления"), ...(!LN ? [row(tr("Напоминания"), tr("Работают в приложении для Android"), null)] : [
+      row(tr("Напоминания"), REM.perm === "denied" ? tr("Уведомления запрещены, разрешите их в настройках телефона") : tr("Для задач со временем"),
+        segControl("pref-remind", [["off", tr("Нет")], ["0", tr("В срок")], ["10", tr("10 мин")], ["60", tr("1 ч")]], prefs.remind, v => { setPref("remind", v); syncReminders(true).catch(() => {}); }, tr("Напоминания"))),
+      row(tr("Утренний план"), tr("В 9:00: сколько дел на сегодня"), (() => { const c = h("input", { type: "checkbox", class: "tgl", role: "switch", "aria-label": tr("Утренний план"), checked: prefs.digest }); c.addEventListener("change", () => { setPref("digest", c.checked); syncReminders(true).catch(() => {}); }); return c; })())])),
     group(tr("Интеграции"),
-      row(tr("Напоминания"), null, h("span", { class: "soon" }, tr("скоро"))),
       row(tr("Google Календарь"), gStatusText(), (() => { const c = h("input", { type: "checkbox", class: "tgl", role: "switch", "aria-label": tr("Google Календарь"), checked: prefs.gcal }); c.addEventListener("change", () => { setPref("gcal", c.checked); if (c.checked) gReload(); render(); }); return c; })()),
       prefs.gcal && GC.state === "err" ? h("div", { class: "set-row" }, gErrBox()) : null),
     group(tr("Данные"),

@@ -39,6 +39,9 @@ jobs:
           npx cap sync android
           # MainActivity that hands Google consent results to the sign-in plugin
           cp ci/native/MainActivity.java android/app/src/main/java/com/funmburg/mingyue/MainActivity.java
+          # reminders: status-bar icon, and exact alarms so a reminder fires on the minute
+          cp ci/native/res/drawable/ic_stat_migo.xml android/app/src/main/res/drawable/
+          sed -i 's#</manifest>#    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />\n</manifest>#' android/app/src/main/AndroidManifest.xml
           # every build gets a higher version, so Android always offers "Update"
           sed -i "s/versionCode 1$/versionCode ${GITHUB_RUN_NUMBER}/; s/versionName \"1.0\"/versionName \"0.1.${GITHUB_RUN_NUMBER}\"/" android/app/build.gradle
           grep -E "versionCode|versionName" android/app/build.gradle
