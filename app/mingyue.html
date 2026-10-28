@@ -397,8 +397,10 @@ main { min-width: 0; padding-block: 28px 120px; padding-left: max(16px, env(safe
   .nav a .count { display: none; }
   main { padding-block: 20px 110px; }
   .head > div:first-child:has(> .phonebrand) { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 10px; align-items: center; }
-  .head > div:first-child > .phonebrand { display: flex !important; grid-row: 1 / span 3; }
+  .head > div:first-child > .phonebrand { display: flex !important; grid-row: 1; }
   .head > div:first-child > :not(.phonebrand) { grid-column: 2; }
+  .head > div:first-child > h1 { grid-row: 1; } /* title first, eyebrow goes under it like the date on Today */
+  .head > div:first-child > .eyebrow:empty { display: none; }
   .phonebrand > :not(.mascot) { display: none; }
   .phonebrand .mascot { width: 40px !important; height: 41px !important; }
   .week { grid-template-columns: 1fr; }
@@ -431,13 +433,19 @@ img.mascot, .hdragon img { filter: drop-shadow(0 0 .6px var(--h-fg)) drop-shadow
 .hiro[data-mood="happy"] .all { animation: hiro-hop .5s ease-out 2; }
 @keyframes hiro-hop { 40% { transform: translateY(-6%) scale(1.02, .98); } }
 .hiro .zz { opacity: 0; transition: opacity .3s; font: 700 60px var(--h-f-body, sans-serif); fill: #1D2420; }
-.hiro[data-mood="sleep"] .zz { opacity: 1; animation: hiro-zz 2.4s ease-in-out infinite; }
-@keyframes hiro-zz { 50% { transform: translate(8px, -14px); } }
+.hiro[data-mood="sleep"] .zz { opacity: 1; }
+.hiro .zz text { transform-box: fill-box; transform-origin: 0 100%; }
+.hiro[data-mood="sleep"] .zz text { opacity: 0; animation: hiro-zz 3s ease-out infinite; }
+.hiro[data-mood="sleep"] .zz text + text { animation-delay: 1.5s; }
+@keyframes hiro-zz { 0% { opacity: 0; transform: translate(0, 0) scale(.6); } 25% { opacity: 1; } 100% { opacity: 0; transform: translate(26px, -60px) scale(1.15); } }
+.hiro[data-mood="sleep"] .all { animation: hiro-snore 4.8s ease-in-out infinite; }
+@keyframes hiro-snore { 50% { transform: translateY(1.5%) scale(1.03, .97); } }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .hiro { filter: invert(1); } }
 :root[data-theme="dark"] .hiro { filter: invert(1); }
 @media (prefers-reduced-motion: reduce) {
   .hiro .eye { transition: none; }
-  .hiro.talk .mouth, .hiro[data-mood="happy"] .all, .hiro[data-mood="idle"] .all, .hiro[data-mood="sleep"] .zz { animation: none; }
+  .hiro.talk .mouth, .hiro[data-mood="happy"] .all, .hiro[data-mood="idle"] .all, .hiro[data-mood="sleep"] .all { animation: none; }
+  .hiro[data-mood="sleep"] .zz text { animation: none; opacity: 1; }
 }
 .hdragon { position: relative; width: 140px; height: 140px; }
 .hdragon img { position: absolute; left: 0; top: 0; width: 52px; height: auto; filter: none; }
@@ -617,6 +625,7 @@ img.mascot, .hdragon img { filter: drop-shadow(0 0 .6px var(--h-fg)) drop-shadow
 .set-row button.link { border: 0; background: transparent; padding: 0; font-weight: 600; text-align: left; flex: 1; min-height: 56px; }
 html.calm-eyes .hiro .eye { transform: none !important; }
 html.no-sleep .hiro[data-mood="sleep"] :is(.closed, .zz) { opacity: 0; animation: none; }
+html.no-sleep .hiro[data-mood="sleep"] :is(.all, .zz text) { animation: none; }
 
 /* ---------- Google Calendar events: a thin bar instead of a checkbox ---------- */
 .task.ev .evbar { width: 3px; align-self: stretch; min-height: 18px; flex: none; border-radius: 2px; background: var(--h-fg); opacity: .55; margin-inline: 9px 10px; }
@@ -659,6 +668,15 @@ html.no-sleep .hiro[data-mood="sleep"] :is(.closed, .zz) { opacity: 0; animation
 .ygrid i { font-style: normal; text-align: center; font-size: 10px; line-height: 18px; border-radius: 50%; font-variant-numeric: tabular-nums; }
 .ygrid i.has { font-weight: 800; }
 .ygrid i.today { background: var(--h-mark); color: var(--h-mark-fg); }
+
+/* every tab's title sits on the same line: 41px row (Migo's height), top-aligned */
+@media (max-width: 899px) {
+  .head, .ph-head, .cal-head { align-items: flex-start; }
+  .head h1, .ph-head h1, .cal-head h1 { margin: 0; font-size: clamp(24px, 8vw, 32px); line-height: 41px; }
+  .head > div:first-child > .eyebrow { margin-top: 2px; }
+  .head > div:first-child:has(> .phonebrand) { align-items: start; }
+  .head > :not(:first-child), .ph-acts, .cal-nav { margin-top: -1px; }
+}
 
 /* ---------- mobile branch: animated tab switch ---------- */
 @media (max-width: 899px) {
@@ -1316,6 +1334,7 @@ function viewTodayPhone() {
     h("section", { class: "sec" }, h("div", { class: "tline" },
       line.length ? line.map(row) : h("div", { class: "blank" }, isToday ? HIRO_EL : mascotImg(), h("div", {}, isToday ? "На сегодня пусто. Миго отдыхает." : "На этот день пока ничего.")),
       slot)),
+    isToday && items.length && !left ? h("div", { class: "blank" }, HIRO_EL, h("div", {}, prefs.sleep ? "Всё на сегодня сделано. Миго спит." : "Всё на сегодня сделано.")) : null,
     inbox.length ? h("section", { class: "sec" }, h("h2", {}, "Входящие", h("span", { class: "n" }, inbox.length)), h("div", { class: "tline" }, inbox.map(x => card(x)))) : null);
 }
 const viewTodayDesktop = VIEWS.today;
@@ -1404,7 +1423,7 @@ function viewSettings() {
   const group = (title, ...rows) => h("section", { class: "set-group" }, h("h2", {}, title), h("div", { class: "set-card" }, rows));
   const counts = `${Object.keys(S.tasks).length} задач · ${Object.keys(S.habits).length} привычек · ${Object.keys(S.notes).length} заметок`;
   return h("div", { class: "wrap" },
-    h("div", { class: "head" }, h("div", {}, h("h1", {}, "Настройки"))),
+    header("", "Настройки"),
     h("div", { class: "set-card profile" }, avatarEl(),
       h("div", { class: "pinfo" }, (() => {
         const inp = h("input", { class: "pname", type: "text", value: myName(), placeholder: "Ваше имя", "aria-label": "Имя", maxlength: "40", autocomplete: "given-name", enterkeyhint: "done" });
