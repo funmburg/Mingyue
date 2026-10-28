@@ -49,12 +49,33 @@ jobs:
           grep -E "versionCode|versionName" android/app/build.gradle
 
       # One fixed signing key, so a new APK installs over the old one without losing data
-      - name: Use the repo's debug key
-        run: mkdir -p ~/.android && cp ci/debug.keystore ~/.android/debug.keystore
+      # (Gradle ignores ~/.android/debug.keystore on the runner and made a new key every build, so it is set explicitly)
+      - name: Sign with the repo's debug key
+        run: |
+          cat >> android/app/build.gradle <<'GRADLE'
+
+          android {
+              signingConfigs {
+                  debug {
+                      storeFile rootProject.file("../ci/debug.keystore")
+                      storePassword "android"
+                      keyAlias "androiddebugkey"
+                      keyPassword "android"
+                  }
+              }
+          }
+          GRADLE
 
       - name: Build APK
         working-directory: android
         run: ./gradlew assembleDebug --no-daemon
+
+      # the APK must carry the fixed key (86:CC...), or updates and Google sign-in break
+      - name: Check signing key
+        run: |
+          SIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          "$SIGNER" verify --print-certs android/app/build/outputs/apk/debug/app-debug.apk | tee certs.txt
+          grep -qi "SHA-1 digest: 86ccdbdcf3c71c623e2e0db2dd7ec5db37483103" certs.txt
 
       - name: Rename APK
         run: |
