@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- same as the h-surface colour in app/mingyue.html -->
+    <color name="msplash_bg">#FFFFFF</color>
+</resources>

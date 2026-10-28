@@ -1,0 +1,36 @@
+package com.funmburg.mingyue;
+
+import android.content.Intent;
+import android.os.Bundle;
+import com.funmburg.mingyue.widgets.MingyueWidgetsPlugin;
+import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.Plugin;
+import com.getcapacitor.PluginHandle;
+import ee.forgr.capacitor.social.login.GoogleProvider;
+import ee.forgr.capacitor.social.login.ModifiedMainActivityForSocialLoginPlugin;
+import ee.forgr.capacitor.social.login.SocialLoginPlugin;
+
+// Copied over the generated MainActivity in CI: Google sign-in with extra scopes (Calendar)
+// needs the activity to pass the consent result back to the SocialLogin plugin.
+public class MainActivity extends BridgeActivity implements ModifiedMainActivityForSocialLoginPlugin {
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        // the app's own plugin that feeds the home-screen widgets (ci/native/widgets)
+        registerPlugin(MingyueWidgetsPlugin.class);
+        super.onCreate(savedInstanceState);
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode >= GoogleProvider.REQUEST_AUTHORIZE_GOOGLE_MIN && requestCode < GoogleProvider.REQUEST_AUTHORIZE_GOOGLE_MAX) {
+            PluginHandle handle = getBridge().getPlugin("SocialLogin");
+            if (handle == null) return;
+            Plugin plugin = handle.getInstance();
+            if (plugin instanceof SocialLoginPlugin) ((SocialLoginPlugin) plugin).handleGoogleLoginIntent(requestCode, data);
+        }
+    }
+
+    @Override
+    public void IHaveModifiedTheMainActivityForTheUseWithSocialLoginPlugin() {}
+}
