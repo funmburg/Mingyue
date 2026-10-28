@@ -670,6 +670,8 @@ html.no-sleep .hiro[data-mood="sleep"] :is(.closed, .zz) { opacity: 0; animation
 .nav-ind { position: absolute; z-index: 0; top: 6px; bottom: 6px; left: 0; width: 0; border-radius: 999px; background: var(--h-mark); pointer-events: none; }
 }
 @media (min-width: 900px) { .nav-ind { display: none; } .nav a.me-tab .avatar { width: 24px; height: 24px; font-size: 11px; } }
+/* the slide-in from the right must not widen the page, or Android shifts the fixed tab bar */
+@media (max-width: 899px) { html, body, main { overflow-x: clip; } }
 @keyframes page-in-r { from { opacity: 0; transform: translateX(28px); } }
 @keyframes page-in-l { from { opacity: 0; transform: translateX(-28px); } }
 main.in-r > * { animation: page-in-r .3s cubic-bezier(.3, .7, .2, 1); }
