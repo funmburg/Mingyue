@@ -77,7 +77,8 @@ const MingyueSplash = (() => {
   const $ = s => root.querySelector(s);
   const cv = $("canvas"), migo = $(".migo"), statusEl = $(".ms-status"), bar = $(".ms-bar i");
   const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const LINES = ["Просыпаюсь…", "Собираю задачи…", "Раскладываю день…"];
+  const EN_UI = (() => { try { const p = JSON.parse(localStorage.getItem("mingyue.prefs") || "{}"); if (p.lang) return p.lang === "en"; } catch {} return !/^(ru|uk|be|kk)/i.test(navigator.language || "ru"); })();
+  const LINES = EN_UI ? ["Waking up…", "Gathering tasks…", "Laying out the day…"] : ["Просыпаюсь…", "Собираю задачи…", "Раскладываю день…"];
   const ENTRY = 1.3, MIN_BEFORE_BURST = 2.2, BURST = 1.1, HOLD = 2.4;
 
   // Фигурки: место на орбите, размер, с какой стороны залетают
@@ -96,7 +97,7 @@ const MingyueSplash = (() => {
 
   const h = new Date().getHours();
   const slot = h >= 5 && h < 12 ? 8 : h >= 12 && h < 17 ? 14 : h >= 17 && h < 23 ? 20 : 2;
-  const HELLO = { 8: "Доброе утро", 14: "Добрый день", 20: "Добрый вечер", 2: "Доброй ночи" };
+  const HELLO = EN_UI ? { 8: "Good morning", 14: "Good afternoon", 20: "Good evening", 2: "Good night" } : { 8: "Доброе утро", 14: "Добрый день", 20: "Добрый вечер", 2: "Доброй ночи" };
 
   // Что кружит по орбите в разное время суток
   const KIND = { 8: "sun", 14: "flower", 20: "star", 2: "moon" };
@@ -206,7 +207,7 @@ const MingyueSplash = (() => {
     if (burstAt != null) return hidden;
     $(".ms-hi").textContent = name ? HELLO[slot] + "," : "";
     $(".ms-who").textContent = name || HELLO[slot] + "!";
-    $(".ms-day").textContent = new Date().toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
+    $(".ms-day").textContent = new Date().toLocaleDateString(EN_UI ? "en-GB" : "ru-RU", { weekday: "long", day: "numeric", month: "long" });
     $(".ms-pill").textContent = summary || "";
     const el = (performance.now() - t0) / 1000;
     burstAt = Math.max(el, MIN_BEFORE_BURST);
@@ -511,8 +512,8 @@ img.mascot, .hdragon img { filter: drop-shadow(0 0 .6px var(--h-fg)) drop-shadow
 .task.swipable { position: relative; touch-action: pan-y; }
 .task.swiping { transform: translateX(var(--dx, 0)); }
 .task.swiping::before { position: absolute; top: 0; bottom: 0; width: 140px; display: flex; align-items: center; font: 600 13px var(--h-f-body); color: var(--h-muted); border-radius: 8px; }
-.task.swiping.r::before { content: "Готово"; right: calc(100% + 8px); justify-content: flex-end; padding-right: 10px; }
-.task.swiping.l::before { content: "На завтра"; left: calc(100% + 8px); justify-content: flex-start; padding-left: 10px; }
+.task.swiping.r::before { content: var(--t-done, "Готово"); right: calc(100% + 8px); justify-content: flex-end; padding-right: 10px; }
+.task.swiping.l::before { content: var(--t-tomorrow, "На завтра"); left: calc(100% + 8px); justify-content: flex-start; padding-left: 10px; }
 .task.swiping.armed::before { background: var(--h-mark); color: var(--h-mark-fg); }
 .task.settle { transition: transform .18s ease-out; }
 .day > div { overflow: hidden; }
@@ -855,10 +856,169 @@ function ico(id, cls) {
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
 /* ---------- dates ---------- */
-const DOW = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"];
-const DOW_FULL = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"];
-const MON_GEN = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"];
-const MON_SHORT = ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
+/* language: Russian or English, picked in Settings (switching reloads the page); default follows the device */
+const LANG = (() => { try { const p = JSON.parse(localStorage.getItem("mingyue.prefs") || "{}"); if (p.lang) return p.lang; } catch {} return /^(ru|uk|be|kk)/i.test(navigator.language || "ru") ? "ru" : "en"; })();
+const LOC = LANG === "en" ? "en-GB" : "ru-RU";
+const tr = s => LANG === "en" ? (EN[s] ?? s) : s;
+const EN = {
+  " для важного. Без даты задача попадёт во входящие.": " for important. Without a date the task goes to the inbox.",
+  " и ": " and ",
+  "+ задача": "+ task",
+  "Android, сборка ": "Android, build ",
+  "Google Календарь": "Google Calendar",
+  "Google Календарь не подключён. Добавьте его в claude.ai: Настройки → Коннекторы.": "Google Calendar is not connected. Add it in claude.ai: Settings → Connectors.",
+  "Авто": "Auto",
+  "Без названия": "Untitled",
+  "В Google Календарь": "Add to Google Calendar",
+  "В календаре": "In calendar",
+  "Важная": "Important",
+  "Ваше имя": "Your name",
+  "Вернуть в работу": "Mark as not done",
+  "Войдите в Google, чтобы видеть события календаря.": "Sign in to Google to see your calendar events.",
+  "Войдите в claude.ai для синхронизации": "Sign in to claude.ai to sync",
+  "Войти в Google": "Sign in to Google",
+  "Время": "Time",
+  "Все задачи на сегодня сделаны, Миго может поспать": "All of today's tasks are done, Migo can take a nap",
+  "Все заметки": "All notes",
+  "Всё на сегодня сделано.": "All done for today.",
+  "Всё на сегодня сделано. Миго спит.": "All done for today. Migo is asleep.",
+  "Вход в Google истёк. Переподключите Google Календарь в claude.ai: Настройки → Коннекторы.": "Google sign-in expired. Reconnect Google Calendar in claude.ai: Settings → Connectors.",
+  "Входящие": "Inbox",
+  "Выберите заметку слева": "Pick a note on the left",
+  "Выбрать дату": "Pick a date",
+  "Выключен": "Off",
+  "Год": "Year",
+  "Готово": "Done",
+  "Дата": "Date",
+  "Дни недели": "Days of the week",
+  "Добавить": "Add",
+  "Добавить задачу на этот день": "Add a task for this day",
+  "Добавляю…": "Adding…",
+  "Доступ к календарю для Mingyue не разрешён.": "Mingyue isn't allowed to access the calendar.",
+  "Доступ к календарю запрещён настройками организации.": "Calendar access is blocked by your organization.",
+  "Есть в Google Календаре · открыть": "In Google Calendar · open",
+  "Живые глаза": "Lively eyes",
+  "Завтра": "Tomorrow",
+  "Загружаю планер…": "Loading your planner…",
+  "Задача": "Task",
+  "Задачи без даты будут здесь.": "Tasks without a date show up here.",
+  "Заметки": "Notes",
+  "Заметок пока нет. Создайте первую.": "No notes yet. Create the first one.",
+  "Засыпает, когда все задачи на сегодня сделаны": "Falls asleep when all of today's tasks are done",
+  "Засыпание": "Sleeping",
+  "Из Mingyue": "From Mingyue",
+  "Изменено ": "Edited ",
+  "Имя": "Name",
+  "Имя сброшено": "Name cleared",
+  "Имя сохранено": "Name saved",
+  "Календарь не принял событие": "The calendar didn't accept the event",
+  "Календарь сейчас не отвечает. Попробуйте позже.": "The calendar isn't responding. Try again later.",
+  "Масштаб": "Scale",
+  "Месяц": "Month",
+  "На сегодня пусто. Миго отдыхает.": "Nothing for today. Migo is resting.",
+  "На этот день пока ничего.": "Nothing on this day yet.",
+  "Настройки": "Settings",
+  "Не сохранилось, проверьте сеть": "Not saved, check your connection",
+  "Нет связи, показываю события, сохранённые ": "Offline, showing events saved ",
+  "Новая задача": "New task",
+  "Новая задача · ": "New task · ",
+  "Новая заметка": "New note",
+  "Новая привычка, например: зарядка 10 минут": "New habit, e.g. 10 minutes of stretching",
+  "Нужно разрешить Mingyue доступ к календарю.": "Allow Mingyue to access the calendar.",
+  "Отмена": "Cancel",
+  "Первая строка станет заголовком": "The first line becomes the title",
+  "Повторить": "Retry",
+  "Подключаю…": "Connecting…",
+  "Подключено несколько Google Календарей. Выберите один в окне claude.ai.": "Several Google Calendars are connected. Pick one in claude.ai.",
+  "Подключён, события видны рядом с задачами": "Connected, events appear next to your tasks",
+  "Понимает ": "Understands ",
+  "Привычки": "Habits",
+  "Просрочено": "Overdue",
+  "Прошлая неделя": "Previous week",
+  "Прошлый год": "Previous year",
+  "Прошлый месяц": "Previous month",
+  "Пустая заметка": "Empty note",
+  "Пусто": "Empty",
+  "Работает, когда Mingyue открыт в claude.ai": "Works when Mingyue is open in claude.ai",
+  "Разрешить": "Allow",
+  "Светлая": "Light",
+  "Свободно, добавить задачу": "Free, add a task",
+  "Сегодня": "Today",
+  "Синхронизация прервалась, обновите страницу": "Sync stopped, reload the page",
+  "Синхронизация…": "Syncing…",
+  "Синхронизировано": "Synced",
+  "Следующая неделя": "Next week",
+  "Следующий год": "Next year",
+  "Следующий месяц": "Next month",
+  "Смотрит по сторонам и следит за курсором": "Looks around and follows the cursor",
+  "Сохранить": "Save",
+  "Сохраняется на этом устройстве": "Saved on this device",
+  "Тема": "Theme",
+  "Точно удалить?": "Delete for sure?",
+  "Тёмная": "Dark",
+  "Удалить": "Delete",
+  "Удалить привычку": "Delete habit",
+  "Хранилище заполнено, удалите старое": "Storage is full, delete something old",
+  "Что сделать? Например: позвонить маме завтра 18:00": "What to do? E.g. call mom tomorrow 18:00",
+  "Что сделать? Например: спортзал 19:00 !": "What to do? E.g. gym 19:00 !",
+  "Экспорт в JSON": "Export to JSON",
+  "весь день": "all day",
+  "вчера": "yesterday",
+  "день": "all day",
+  "завтра": "tomorrow",
+  "сегодня": "today",
+  "скоро": "soon",
+  "Данные": "Data",
+  "Добавлено в Google Календарь": "Added to Google Calendar",
+  "Здесь будут привычки. Добавьте одну и отмечайте каждый день.": "Your habits will live here. Add one and check it off every day.",
+  "Интеграции": "Integrations",
+  "Календарь работает, когда Mingyue открыт в claude.ai": "The calendar works when Mingyue is open in claude.ai",
+  "Миго": "Migo",
+  "Мысли, списки, идеи": "Thoughts, lists, ideas",
+  "На сегодня пусто. Добавьте первую задачу в поле выше.": "Nothing for today. Add your first task above.",
+  "Нажмите ещё раз, чтобы удалить": "Tap again to delete",
+  "Напоминания": "Reminders",
+  "Не знаю, создалось ли событие. Проверьте календарь, прежде чем жать ещё раз.": "Not sure the event was created. Check your calendar before trying again.",
+  "Не удалилось, проверьте сеть": "Not deleted, check your connection",
+  "Не удалось войти в Google": "Couldn't sign in to Google",
+  "Не удалось сохранить файл": "Couldn't save the file",
+  "Оформление": "Appearance",
+  "Перенесено на завтра": "Moved to tomorrow",
+  "Последние 7 дней": "Last 7 days",
+  "Сначала укажите дату": "Set a date first",
+  "Неделя": "Week",
+  "Осталось задач:": "Tasks left:",
+  "из": "of",
+  "Сегодня отмечено": "Checked today:",
+  "серия": "streak",
+  "серии пока нет": "no streak yet",
+  "задач:": "tasks:",
+  "всё сделано": "all done",
+  "На сегодня задач нет": "No tasks for today",
+  "Всё на сегодня сделано": "All done for today",
+  "Календарь": "Calendar",
+  "Подключаюсь…": "Connecting…",
+  "Миго, талисман Mingyue": "Migo, the Mingyue mascot",
+  "Загрузка": "Loading",
+  "Язык": "Language",
+  "Русский": "Русский",
+  "Интерфейс приложения": "App interface"
+};
+const pl = (n, ru1, ru2, ru5, en1, enN) => LANG === "en" ? (n === 1 ? en1 : enN) : plural(n, ru1, ru2, ru5);
+document.documentElement.lang = LANG;
+/* the static markup (menu, labels) is written in Russian; swap it once for English */
+if (LANG === "en") {
+  document.documentElement.style.setProperty("--t-done", '"Done"');
+  document.documentElement.style.setProperty("--t-tomorrow", '"Tomorrow"');
+  const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for (let n; (n = walk.nextNode());) { const k = n.nodeValue.trim(); if (k && EN[k]) n.nodeValue = n.nodeValue.replace(k, EN[k]); }
+  for (const el of document.querySelectorAll("[aria-label]")) { const k = el.getAttribute("aria-label"); if (EN[k]) el.setAttribute("aria-label", EN[k]); }
+}
+const DOW_RU = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"];
+const DOW = LANG === "en" ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] : DOW_RU;
+const DOW_FULL = LANG === "en" ? ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] : ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"];
+const MON_GEN = LANG === "en" ? ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"] : ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"];
+const MON_SHORT = LANG === "en" ? ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] : ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
 const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const parse = s => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
 const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
@@ -872,9 +1032,9 @@ function isoWeek(d) {
 }
 function dateLabel(s) {
   const t = today();
-  if (s === t) return "сегодня";
-  if (s === ymd(addDays(new Date(), 1))) return "завтра";
-  if (s === ymd(addDays(new Date(), -1))) return "вчера";
+  if (s === t) return tr("сегодня");
+  if (s === ymd(addDays(new Date(), 1))) return tr("завтра");
+  if (s === ymd(addDays(new Date(), -1))) return tr("вчера");
   const d = parse(s); return `${DOW[dowIdx(d)]}, ${d.getDate()} ${MON_SHORT[d.getMonth()]}`;
 }
 
@@ -884,12 +1044,16 @@ function parseQuick(text, baseDate) {
   const now = new Date();
   const rx = (re, fn) => { title = title.replace(re, (...m) => { fn(...m); return " "; }); };
   rx(/\s!+(?=\s)/g, () => { prio = true; });
-  rx(/\s(?:в\s([01]?\d|2[0-3])[:.]([0-5]\d)|([01]?\d|2[0-3]):([0-5]\d))(?=\s)/i, (_, h1, m1, h2, m2) => { time = `${(h1 || h2).padStart(2, "0")}:${m1 || m2}`; });
+  rx(/\s(?:(?:в|at)\s([01]?\d|2[0-3])[:.]([0-5]\d)|([01]?\d|2[0-3]):([0-5]\d))(?=\s)/i, (_, h1, m1, h2, m2) => { time = `${(h1 || h2).padStart(2, "0")}:${m1 || m2}`; });
   rx(/\sпослезавтра(?=\s)/i, () => { date = ymd(addDays(now, 2)); });
-  rx(/\sзавтра(?=\s)/i, () => { date = ymd(addDays(now, 1)); });
-  rx(/\sсегодня(?=\s)/i, () => { date = ymd(now); });
+  rx(/\s(?:завтра|tomorrow)(?=\s)/i, () => { date = ymd(addDays(now, 1)); });
+  rx(/\s(?:сегодня|today)(?=\s)/i, () => { date = ymd(now); });
   rx(/\s(?:в[о]?\s)?(пн|вт|ср|чт|пт|сб|вс)(?=\s)/i, (_, d) => {
-    const want = DOW.indexOf(d.toLowerCase()); let diff = (want - dowIdx(now) + 7) % 7; if (diff === 0) diff = 7;
+    const want = DOW_RU.indexOf(d.toLowerCase()); let diff = (want - dowIdx(now) + 7) % 7; if (diff === 0) diff = 7;
+    date = ymd(addDays(now, diff));
+  });
+  rx(/\s(?:on\s)?(mon|tue|wed|thu|fri|sat|sun)[a-z]*(?=\s)/i, (_, d) => {
+    const want = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"].indexOf(d.toLowerCase()); let diff = (want - dowIdx(now) + 7) % 7; if (diff === 0) diff = 7;
     date = ymd(addDays(now, diff));
   });
   rx(/\s(\d{1,2})\.(\d{1,2})(?=\s)/, (_, dd, mm) => {
@@ -912,7 +1076,7 @@ async function finishSplash() {
   if (typeof MingyueSplash === "undefined") return;
   await Promise.race([meReady, new Promise(r => setTimeout(r, 1500))]).catch(() => {});
   const td = tasks().filter(x => x.date === today()), left = td.filter(x => !x.done).length;
-  const summary = !td.length ? "На сегодня задач нет" : left ? `${left} ${plural(left, "задача", "задачи", "задач")} на сегодня` : "Всё на сегодня сделано";
+  const summary = !td.length ? tr("На сегодня задач нет") : left ? (LANG === "en" ? `${left} ${pl(left, "", "", "", "task", "tasks")} for today` : `${left} ${plural(left, "задача", "задачи", "задач")} на сегодня`) : tr("Всё на сегодня сделано");
   MingyueSplash.finish({ name: myName(), summary }).catch?.(() => {});
 }
 const LS = "hiromo.v1";
@@ -925,21 +1089,21 @@ function setSync(m, text) {
 async function initStore() {
   loadLocal(); render();
   const use = window.claude?.use;
-  if (!use) { setSync("local", "Сохраняется на этом устройстве"); return markReady(); }
+  if (!use) { setSync("local", tr("Сохраняется на этом устройстве")); return markReady(); }
   const [db, user] = await Promise.all([use("db"), use("user")]);
   const id = user ? await user.id() : null;
-  if (!db || !id) { setSync("local", "Войдите в claude.ai для синхронизации"); return markReady(); }
+  if (!db || !id) { setSync("local", tr("Войдите в claude.ai для синхронизации")); return markReady(); }
   base = db.doc(`data/users/${id}/planner`);
   let first = new Set();
   for (const c of COLLS) {
     base.collection(c).onSnapshot(snap => {
       const next = {}; for (const d of snap.docs) next[d.id] = { id: d.id, ...d.data() };
       S[c] = next; first.add(c);
-      if (first.size === COLLS.length) { setSync("sync", "Синхронизировано"); if (!ready) return markReady(); }
+      if (first.size === COLLS.length) { setSync("sync", tr("Синхронизировано")); if (!ready) return markReady(); }
       render();
-    }, () => { setSync("local", "Синхронизация прервалась, обновите страницу"); markReady(); });
+    }, () => { setSync("local", tr("Синхронизация прервалась, обновите страницу")); markReady(); });
   }
-  setSync("local", "Синхронизация…");
+  setSync("local", tr("Синхронизация…"));
   setTimeout(markReady, 10000);
 }
 const pending = {};
@@ -947,13 +1111,13 @@ function put(c, obj) {
   S[c][obj.id] = obj; render();
   if (!base) return saveLocal();
   const key = c + "/" + obj.id;
-  const write = () => base.collection(c).doc(obj.id).set(JSON.parse(JSON.stringify(obj))).catch(e => toast(e?.code === "quota_exceeded" ? "Хранилище заполнено, удалите старое" : "Не сохранилось, проверьте сеть"));
+  const write = () => base.collection(c).doc(obj.id).set(JSON.parse(JSON.stringify(obj))).catch(e => toast(e?.code === "quota_exceeded" ? tr("Хранилище заполнено, удалите старое") : tr("Не сохранилось, проверьте сеть")));
   pending[key] = (pending[key] || Promise.resolve()).then(write);
 }
 function del(c, id) {
   delete S[c][id]; render();
   if (!base) return saveLocal();
-  base.collection(c).doc(id).delete().catch(() => toast("Не удалилось, проверьте сеть"));
+  base.collection(c).doc(id).delete().catch(() => toast(tr("Не удалилось, проверьте сеть")));
 }
 let toastT;
 function toast(msg) {
@@ -976,7 +1140,7 @@ const toggleTask = t => { if (!t.done) Hiro.mood("happy", 1500); put("tasks", { 
 function taskRow(t, opts = {}) {
   const late = t.date && !t.done && t.date < today();
   const row = h("div", { class: "task" + (t.done ? " done" : "") + (t.prio ? " prio" : ""), "data-id": t.id, draggable: opts.drag ? "true" : null },
-    h("button", { class: "chk", "aria-label": t.done ? "Вернуть в работу" : "Готово", onclick: () => toggleTask(t) }, ico("i-check")),
+    h("button", { class: "chk", "aria-label": t.done ? tr("Вернуть в работу") : tr("Готово"), onclick: () => toggleTask(t) }, ico("i-check")),
     h("span", { class: "t", role: "button", tabindex: "0", onclick: () => editTask(t), onkeydown: e => { if (e.key === "Enter") editTask(t); } }, t.title),
     t.time ? h("span", { class: "chip time" }, t.time) : null,
     opts.showDate && t.date ? h("span", { class: "chip" + (late ? " late" : "") }, dateLabel(t.date)) : null);
@@ -995,7 +1159,7 @@ function addBar(id, placeholder, onAdd) {
   inp.addEventListener("keydown", e => { if (e.key === "Enter") go(); });
   inp.addEventListener("input", () => { drafts[id] = inp.value; });
   inp.value = drafts[id] || "";
-  return h("div", { class: "add" }, inp, h("button", { onclick: go }, "Добавить"));
+  return h("div", { class: "add" }, inp, h("button", { onclick: go }, tr("Добавить")));
 }
 const drafts = {};
 
@@ -1007,17 +1171,17 @@ function editTask(t) {
   const close = () => scrim.remove();
   const save = () => { put("tasks", { ...t, title: title.value.trim() || t.title, date: date.value || null, time: time.value || null, prio: prio.checked }); close(); };
   let armed = false;
-  const delBtn = h("button", { class: "btn danger", onclick: () => { if (!armed) { armed = true; delBtn.textContent = "Точно удалить?"; return; } del("tasks", t.id); close(); } }, "Удалить");
+  const delBtn = h("button", { class: "btn danger", onclick: () => { if (!armed) { armed = true; delBtn.textContent = tr("Точно удалить?"); return; } del("tasks", t.id); close(); } }, tr("Удалить"));
   const scrim = h("div", { class: "scrim", onclick: e => { if (e.target === scrim) close(); } },
-    h("div", { class: "sheet", role: "dialog", "aria-label": "Задача" },
-      h("label", {}, "Задача", title),
-      h("div", { class: "row" }, h("label", {}, "Дата", date), h("label", {}, "Время", time)),
-      h("label", { class: "chkrow" }, prio, "Важная"),
+    h("div", { class: "sheet", role: "dialog", "aria-label": tr("Задача") },
+      h("label", {}, tr("Задача"), title),
+      h("div", { class: "row" }, h("label", {}, tr("Дата"), date), h("label", {}, tr("Время"), time)),
+      h("label", { class: "chkrow" }, prio, tr("Важная")),
       prefs.gcal ? (t.gcal?.id
-        ? h("a", { class: "btn gbtn", href: t.gcal.link || "https://calendar.google.com/", target: "_blank", rel: "noopener" }, ico("i-cal"), "Есть в Google Календаре · открыть")
-        : (() => { const b = h("button", { class: "btn gbtn", onclick: () => sendToCalendar(t, { title: title.value.trim() || t.title, date: date.value, time: time.value }, b) }, ico("i-cal"), "В Google Календарь"); return b; })()) : null,
+        ? h("a", { class: "btn gbtn", href: t.gcal.link || "https://calendar.google.com/", target: "_blank", rel: "noopener" }, ico("i-cal"), tr("Есть в Google Календаре · открыть"))
+        : (() => { const b = h("button", { class: "btn gbtn", onclick: () => sendToCalendar(t, { title: title.value.trim() || t.title, date: date.value, time: time.value }, b) }, ico("i-cal"), tr("В Google Календарь")); return b; })()) : null,
       h("div", { class: "acts" }, delBtn, h("div", { style: "display:flex;gap:8px" },
-        h("button", { class: "btn", onclick: close }, "Отмена"), h("button", { class: "btn primary", onclick: save }, "Сохранить")))));
+        h("button", { class: "btn", onclick: close }, tr("Отмена")), h("button", { class: "btn primary", onclick: save }, tr("Сохранить"))))));
   title.addEventListener("keydown", e => { if (e.key === "Enter") save(); });
   document.addEventListener("keydown", function esc(e) { if (e.key === "Escape") { close(); document.removeEventListener("keydown", esc); } });
   document.body.append(scrim); title.focus();
@@ -1041,22 +1205,22 @@ function viewToday() {
   const left = todays.filter(x => !x.done).length;
   const habits = Object.values(S.habits).sort((a, b) => a.createdAt - b.createdAt);
   return h("div", { class: "wrap" },
-    header(`Неделя ${isoWeek(now)} · ${DOW_FULL[dowIdx(now)]}`, `${now.getDate()} ${MON_GEN[now.getMonth()]}`,
-      todays.length ? (left ? `Осталось задач: ${left} из ${todays.length}` : "Все задачи на сегодня сделаны, Миго может поспать") : null,
+    header(`${tr("Неделя")} ${isoWeek(now)} · ${DOW_FULL[dowIdx(now)]}`, `${now.getDate()} ${MON_GEN[now.getMonth()]}`,
+      todays.length ? (left ? `${tr("Осталось задач:")} ${left} ${tr("из")} ${todays.length}` : tr("Все задачи на сегодня сделаны, Миго может поспать")) : null,
       h("div", { class: "hiro-slot" }, HIRO_EL)),
-    addBar("q-today", "Что сделать? Например: позвонить маме завтра 18:00", v => addTask(v, null)),
-    h("div", { class: "hint" }, "Понимает ", h("code", {}, "завтра"), " ", h("code", {}, "пт"), " ", h("code", {}, "12.11"), " ", h("code", {}, "18:00"), " и ", h("code", {}, "!"), " для важного. Без даты задача попадёт во входящие."),
-    habits.length ? h("section", { class: "sec" }, h("h2", {}, "Привычки"),
+    addBar("q-today", tr("Что сделать? Например: позвонить маме завтра 18:00"), v => addTask(v, null)),
+    h("div", { class: "hint" }, tr("Понимает "), h("code", {}, tr("завтра")), " ", h("code", {}, LANG === "en" ? "fri" : tr("пт")), " ", h("code", {}, "12.11"), " ", h("code", {}, "18:00"), tr(" и "), h("code", {}, "!"), tr(" для важного. Без даты задача попадёт во входящие.")),
+    habits.length ? h("section", { class: "sec" }, h("h2", {}, tr("Привычки")),
       h("div", { class: "hstrip" }, habits.map(hb => {
         const on = !!hb.log?.[t];
         return h("button", { class: "hchip", "aria-pressed": String(on), onclick: () => toggleHabit(hb, t) }, on ? ico("i-check") : null, hb.name);
       }))) : null,
-    overdue.length ? h("section", { class: "sec overdue" }, h("h2", {}, "Просрочено", h("span", { class: "n" }, overdue.length)), listOf(overdue, "", { showDate: true })) : null,
+    overdue.length ? h("section", { class: "sec overdue" }, h("h2", {}, tr("Просрочено"), h("span", { class: "n" }, overdue.length)), listOf(overdue, "", { showDate: true })) : null,
     gErrBox(),
-    gDay(t).length ? h("section", { class: "sec" }, h("h2", {}, "В календаре", h("span", { class: "n" }, gDay(t).length)), h("div", { class: "list" }, gDay(t).map(e => evRow(e)))) : null,
-    h("section", { class: "sec" }, h("h2", {}, "Сегодня", h("span", { class: "n" }, todays.length || "")),
-      todays.length ? listOf(todays, "") : h("div", { class: "list" }, blank("На сегодня пусто. Добавьте первую задачу в поле выше."))),
-    h("section", { class: "sec" }, h("h2", {}, "Входящие", h("span", { class: "n" }, inbox.length || "")), listOf(inbox, "Задачи без даты будут здесь.")));
+    gDay(t).length ? h("section", { class: "sec" }, h("h2", {}, tr("В календаре"), h("span", { class: "n" }, gDay(t).length)), h("div", { class: "list" }, gDay(t).map(e => evRow(e)))) : null,
+    h("section", { class: "sec" }, h("h2", {}, tr("Сегодня"), h("span", { class: "n" }, todays.length || "")),
+      todays.length ? listOf(todays, "") : h("div", { class: "list" }, blank(tr("На сегодня пусто. Добавьте первую задачу в поле выше.")))),
+    h("section", { class: "sec" }, h("h2", {}, tr("Входящие"), h("span", { class: "n" }, inbox.length || "")), listOf(inbox, tr("Задачи без даты будут здесь."))));
 }
 
 let weekStart = monday(new Date());
@@ -1068,15 +1232,15 @@ function viewWeek() {
     : `${weekStart.getDate()} ${MON_SHORT[weekStart.getMonth()]} – ${end.getDate()} ${MON_SHORT[end.getMonth()]}`;
   const all = tasks();
   return h("div", { class: "wrap wide" }, gErrBox(),
-    header(`Неделя ${isoWeek(weekStart)} · ${weekStart.getFullYear()}`, range, null,
+    header(`${tr("Неделя")} ${isoWeek(weekStart)} · ${weekStart.getFullYear()}`, range, null,
       h("div", { class: "weeknav" },
-        h("button", { class: "btn icon", "aria-label": "Прошлая неделя", onclick: () => { weekStart = addDays(weekStart, -7); render(); } }, ico("i-left")),
-        h("button", { class: "btn", onclick: () => { weekStart = monday(new Date()); render(); } }, "Сегодня"),
-        h("button", { class: "btn icon", "aria-label": "Следующая неделя", onclick: () => { weekStart = addDays(weekStart, 7); render(); } }, ico("i-right")))),
+        h("button", { class: "btn icon", "aria-label": tr("Прошлая неделя"), onclick: () => { weekStart = addDays(weekStart, -7); render(); } }, ico("i-left")),
+        h("button", { class: "btn", onclick: () => { weekStart = monday(new Date()); render(); } }, tr("Сегодня")),
+        h("button", { class: "btn icon", "aria-label": tr("Следующая неделя"), onclick: () => { weekStart = addDays(weekStart, 7); render(); } }, ico("i-right")))),
     h("div", { class: "week" }, days.map((d, i) => {
       const key = ymd(d);
       const items = all.filter(x => x.date === key).sort(byTime);
-      const mini = h("input", { class: "mini", id: "q-" + key, type: "text", placeholder: "+ задача", autocomplete: "off", enterkeyhint: "done" });
+      const mini = h("input", { class: "mini", id: "q-" + key, type: "text", placeholder: tr("+ задача"), autocomplete: "off", enterkeyhint: "done" });
       mini.value = drafts[mini.id] || "";
       mini.addEventListener("input", () => { drafts[mini.id] = mini.value; });
       mini.addEventListener("keydown", e => { if (e.key === "Enter" && addTask(mini.value, key)) { drafts[mini.id] = ""; mini.value = ""; } });
@@ -1109,8 +1273,8 @@ function viewHabits() {
   const days = [...Array(7)].map((_, i) => addDays(new Date(), i - 6));
   const t = today();
   return h("div", { class: "wrap" },
-    header("Последние 7 дней", "Привычки", habits.length ? `Сегодня отмечено ${habits.filter(x => x.log?.[t]).length} из ${habits.length}` : null),
-    addBar("q-habit", "Новая привычка, например: зарядка 10 минут", v => {
+    header(tr("Последние 7 дней"), tr("Привычки"), habits.length ? `${tr("Сегодня отмечено")} ${habits.filter(x => x.log?.[t]).length} ${tr("из")} ${habits.length}` : null),
+    addBar("q-habit", tr("Новая привычка, например: зарядка 10 минут"), v => {
       const name = v.trim(); if (!name) return false;
       put("habits", { id: uid(), name, log: {}, createdAt: Date.now() }); return true;
     }),
@@ -1119,21 +1283,21 @@ function viewHabits() {
       h("div", { class: "list" }, habits.map(hb => {
         const s = streak(hb);
         let armed = false;
-        const x = h("button", { class: "x", "aria-label": "Удалить привычку", title: "Удалить", onclick: () => {
-          if (!armed) { armed = true; x.style.color = "var(--h-danger)"; toast("Нажмите ещё раз, чтобы удалить"); setTimeout(() => { armed = false; x.style.color = ""; }, 2500); return; }
+        const x = h("button", { class: "x", "aria-label": tr("Удалить привычку"), title: tr("Удалить"), onclick: () => {
+          if (!armed) { armed = true; x.style.color = "var(--h-danger)"; toast(tr("Нажмите ещё раз, чтобы удалить")); setTimeout(() => { armed = false; x.style.color = ""; }, 2500); return; }
           del("habits", hb.id);
         } }, ico("i-x"));
         return h("div", { class: "habit" },
-          h("div", {}, h("div", { class: "name" }, hb.name), h("div", { class: "streak" }, s ? `серия ${s} ${plural(s, "день", "дня", "дней")}` : "серии пока нет")),
+          h("div", {}, h("div", { class: "name" }, hb.name), h("div", { class: "streak" }, s ? `${tr("серия")} ${s} ${pl(s, tr("день"), tr("дня"), tr("дней"), "day", "days")}` : tr("серии пока нет"))),
           h("div", { class: "dots" }, days.map(d => {
             const k = ymd(d), on = !!hb.log?.[k];
             return h("button", { class: "dot" + (on ? " on" : "") + (k === t ? " today" : ""), "aria-pressed": String(on), "aria-label": `${hb.name}, ${dateLabel(k)}`, onclick: () => toggleHabit(hb, k) }, d.getDate());
           })), x);
-      }))) : h("div", { class: "list" }, blank("Здесь будут привычки. Добавьте одну и отмечайте каждый день.", true)));
+      }))) : h("div", { class: "list" }, blank(tr("Здесь будут привычки. Добавьте одну и отмечайте каждый день."), true)));
 }
 
 let openNote = null, noteTimer = null;
-function noteTitle(n) { return (n.body || "").split("\n").find(l => l.trim())?.trim() || "Пустая заметка"; }
+function noteTitle(n) { return (n.body || "").split("\n").find(l => l.trim())?.trim() || tr("Пустая заметка"); }
 function viewNotes() {
   const notes = Object.values(S.notes).sort((a, b) => b.updatedAt - a.updatedAt);
   if (openNote && !S.notes[openNote]) openNote = null;
@@ -1141,24 +1305,24 @@ function viewNotes() {
   const create = () => { const n = { id: uid(), body: "", updatedAt: Date.now() }; openNote = n.id; put("notes", n); setTimeout(() => $("#note-body")?.focus(), 0); };
   let editor;
   if (cur) {
-    const ta = h("textarea", { id: "note-body", placeholder: "Первая строка станет заголовком" });
+    const ta = h("textarea", { id: "note-body", placeholder: tr("Первая строка станет заголовком") });
     ta.value = cur.body || "";
     ta.addEventListener("input", () => {
       clearTimeout(noteTimer);
       noteTimer = setTimeout(() => put("notes", { ...S.notes[cur.id], body: ta.value, updatedAt: Date.now() }), 600);
     });
     let armed = false;
-    const delBtn = h("button", { class: "btn danger", onclick: () => { if (!armed) { armed = true; delBtn.textContent = "Точно удалить?"; return; } clearTimeout(noteTimer); del("notes", cur.id); openNote = null; render(); } }, "Удалить");
+    const delBtn = h("button", { class: "btn danger", onclick: () => { if (!armed) { armed = true; delBtn.textContent = tr("Точно удалить?"); return; } clearTimeout(noteTimer); del("notes", cur.id); openNote = null; render(); } }, tr("Удалить"));
     editor = h("div", { class: "editor" },
-      h("div", { class: "bar" }, h("button", { class: "btn back", onclick: () => { openNote = null; render(); } }, ico("i-left"), "Все заметки"),
-        h("span", { class: "grow" }, "Изменено " + new Date(cur.updatedAt).toLocaleString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })), delBtn),
+      h("div", { class: "bar" }, h("button", { class: "btn back", onclick: () => { openNote = null; render(); } }, ico("i-left"), tr("Все заметки")),
+        h("span", { class: "grow" }, tr("Изменено ") + new Date(cur.updatedAt).toLocaleString(LOC, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })), delBtn),
       ta);
-  } else editor = h("div", { class: "editor" }, blank(notes.length ? "Выберите заметку слева" : "Заметок пока нет. Создайте первую.", true));
+  } else editor = h("div", { class: "editor" }, blank(notes.length ? tr("Выберите заметку слева") : tr("Заметок пока нет. Создайте первую."), true));
   return h("div", { class: "wrap wide", style: "max-width:1100px" },
-    header("Мысли, списки, идеи", "Заметки", null, h("button", { class: "btn primary newnote", onclick: create }, "Новая заметка")),
+    header(tr("Мысли, списки, идеи"), tr("Заметки"), null, h("button", { class: "btn primary newnote", onclick: create }, tr("Новая заметка"))),
     h("div", { class: "notes" + (cur ? " editing" : "") },
       h("div", { class: "nlist" }, notes.length ? notes.map(n => h("button", { class: "nitem", "aria-current": String(n.id === openNote), onclick: () => { openNote = n.id; render(); } },
-        h("b", {}, noteTitle(n)), h("span", {}, new Date(n.updatedAt).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })))) : h("div", { class: "empty" }, "Пусто")),
+        h("b", {}, noteTitle(n)), h("span", {}, new Date(n.updatedAt).toLocaleDateString(LOC, { day: "numeric", month: "long" })))) : h("div", { class: "empty" }, tr("Пусто"))),
       editor));
 }
 
@@ -1170,7 +1334,7 @@ function render() {
   const a = document.activeElement, fid = a?.id, sel = fid && "selectionStart" in a ? [a.selectionStart, a.selectionEnd, a.value] : null;
   const v = view();
   const main = $("#main");
-  if (!ready) { main.replaceChildren(h("div", { class: "loading" }, DRAGON_EL, "Загружаю планер…")); HiroDragon.start(); return; }
+  if (!ready) { main.replaceChildren(h("div", { class: "loading" }, DRAGON_EL, tr("Загружаю планер…"))); HiroDragon.start(); return; }
   HiroDragon.stop(); $("#parking").append(DRAGON_EL);
   main.replaceChildren(VIEWS[v]());
   const td = tasks().filter(x => x.date === today()), allDone = td.length > 0 && td.every(x => x.done);
@@ -1220,7 +1384,7 @@ const buzz = () => navigator.vibrate?.(8);
     if (t && dx < -TRIGGER) {
       const tm = ymd(addDays(new Date(), 1));
       put("tasks", { ...t, date: tm });
-      return toast("Перенесено на завтра");
+      return toast(tr("Перенесено на завтра"));
     }
     r.classList.add("settle"); r.style.setProperty("--dx", "0px");
     setTimeout(() => r.classList.remove("swiping", "settle", "armed", "r", "l"), 200);
@@ -1271,26 +1435,26 @@ render = function () {
 /* today on phone: pick a day in the strip, tasks laid out on a timeline */
 let selDay = today();
 function addSheet(dateKey) {
-  const inp = h("input", { type: "text", id: "s-add", placeholder: "Что сделать? Например: спортзал 19:00 !", autocomplete: "off", enterkeyhint: "done" });
+  const inp = h("input", { type: "text", id: "s-add", placeholder: tr("Что сделать? Например: спортзал 19:00 !"), autocomplete: "off", enterkeyhint: "done" });
   const close = () => scrim.remove();
   const go = () => { if (addTask(inp.value, dateKey)) { buzz(); close(); } };
   const scrim = h("div", { class: "scrim", onclick: e => { if (e.target === scrim) close(); } },
-    h("div", { class: "sheet", role: "dialog", "aria-label": "Новая задача" },
-      h("label", {}, "Новая задача · " + dateLabel(dateKey), inp),
+    h("div", { class: "sheet", role: "dialog", "aria-label": tr("Новая задача") },
+      h("label", {}, tr("Новая задача · ") + dateLabel(dateKey), inp),
       h("div", { class: "acts" }, h("span"), h("div", { style: "display:flex;gap:8px" },
-        h("button", { class: "btn", onclick: close }, "Отмена"), h("button", { class: "btn primary", onclick: go }, "Добавить")))));
+        h("button", { class: "btn", onclick: close }, tr("Отмена")), h("button", { class: "btn primary", onclick: go }, tr("Добавить"))))));
   inp.addEventListener("keydown", e => { if (e.key === "Enter") go(); if (e.key === "Escape") close(); });
   document.body.append(scrim); inp.focus();
 }
 function card(t, opts = {}) {
   const late = t.date && !t.done && t.date < today();
   const badges = [
-    t.prio && !t.done ? h("span", { class: "badge bdot" }, "Важная") : null,
-    t.done ? h("span", { class: "badge dark" }, "Готово") : null,
+    t.prio && !t.done ? h("span", { class: "badge bdot" }, tr("Важная")) : null,
+    t.done ? h("span", { class: "badge dark" }, tr("Готово")) : null,
     late ? h("span", { class: "badge late" }, dateLabel(t.date)) : null,
     opts.time && t.time ? h("span", { class: "badge" }, t.time) : null].filter(Boolean);
   return h("div", { class: "task card" + (t.done ? " done" : "") + (t.prio ? " prio" : ""), "data-id": t.id },
-    h("button", { class: "chk", "aria-label": t.done ? "Вернуть в работу" : "Готово", onclick: () => toggleTask(t) }, ico("i-check")),
+    h("button", { class: "chk", "aria-label": t.done ? tr("Вернуть в работу") : tr("Готово"), onclick: () => toggleTask(t) }, ico("i-check")),
     h("span", { class: "t", role: "button", tabindex: "0", onclick: () => editTask(t), onkeydown: e => { if (e.key === "Enter") editTask(t); } }, t.title),
     badges.length ? h("div", { class: "badges" }, badges) : null);
 }
@@ -1302,40 +1466,40 @@ function viewTodayPhone() {
   const inbox = isToday ? all.filter(x => !x.date && !x.done).sort(byTime) : [];
   const habits = Object.values(S.habits).sort((a, b) => a.createdAt - b.createdAt);
   const left = items.filter(x => !x.done).length;
-  const title = isToday ? "Сегодня" : selDay === ymd(addDays(new Date(), 1)) ? "Завтра" : DOW_FULL[dowIdx(sel)];
-  const picker = h("input", { type: "date", value: selDay, "aria-label": "Выбрать дату" });
+  const title = isToday ? tr("Сегодня") : selDay === ymd(addDays(new Date(), 1)) ? tr("Завтра") : DOW_FULL[dowIdx(sel)];
+  const picker = h("input", { type: "date", value: selDay, "aria-label": tr("Выбрать дату") });
   picker.addEventListener("change", () => { if (picker.value) { selDay = picker.value; render(); } });
   const month = MON_SHORT[sel.getMonth()];
   const days = [...Array(7)].map((_, i) => addDays(monday(sel), i));
-  const strip = h("div", { class: "strip", role: "tablist", "aria-label": "Дни недели" }, days.map(d => {
+  const strip = h("div", { class: "strip", role: "tablist", "aria-label": tr("Дни недели") }, days.map(d => {
     const k = ymd(d), n = all.filter(x => x.date === k && !x.done).length + gDay(k).length;
-    return h("button", { class: "sday" + (k === selDay ? " sel" : "") + (k < t ? " past" : ""), role: "tab", "aria-selected": String(k === selDay), "aria-label": `${dateLabel(k)}, задач: ${n}`, onclick: () => { selDay = k; render(); } },
+    return h("button", { class: "sday" + (k === selDay ? " sel" : "") + (k < t ? " past" : ""), role: "tab", "aria-selected": String(k === selDay), "aria-label": `${dateLabel(k)}, ${tr("задач:")} ${n}`, onclick: () => { selDay = k; render(); } },
       h("small", {}, DOW[dowIdx(d)]), h("b", {}, d.getDate()), h("span", { class: "pips" }, [...Array(Math.min(n, 3))].map(() => h("i"))));
   }));
   const row = x => h("div", { class: "tl" },
-    h("div", { class: "tl-time" }, x.time ? h("b", {}, x.time) : h("span", {}, "день")), x.ev ? evRow(x.ev, { card: true, noTime: true }) : card(x));
+    h("div", { class: "tl-time" }, x.time ? h("b", {}, x.time) : h("span", {}, tr("день"))), x.ev ? evRow(x.ev, { card: true, noTime: true }) : card(x));
   const evs = gDay(selDay).map(e => ({ ev: e, time: e.time }));
   const line = [...evs, ...items].sort((a, b) => (a.time || "").localeCompare(b.time || ""));
-  const slot = h("button", { class: "slot", onclick: () => addSheet(selDay) }, ico("i-plus"), items.length ? "Свободно, добавить задачу" : "Добавить задачу на этот день");
+  const slot = h("button", { class: "slot", onclick: () => addSheet(selDay) }, ico("i-plus"), items.length ? tr("Свободно, добавить задачу") : tr("Добавить задачу на этот день"));
   return h("div", { class: "wrap" },
     h("div", { class: "ph-head" }, mascotImg(),
       h("div", { class: "ttl" }, h("h1", {}, title),
         h("div", { class: "sub" }, h("i", { "data-mode": mode, title: $("#sync span")?.textContent || "" }),
-          `${sel.getDate()} ${MON_GEN[sel.getMonth()]}` + (items.length ? (left ? ` · ${left} из ${items.length}` : " · всё сделано") : ""))),
+          `${sel.getDate()} ${MON_GEN[sel.getMonth()]}` + (items.length ? (left ? ` · ${left} ${tr("из")} ${items.length}` : " · " + tr("всё сделано")) : ""))),
       h("div", { class: "ph-acts" },
         h("label", { class: "pill" }, ico("i-cal"), month, picker),
-        h("button", { class: "fab", "aria-label": "Новая задача", onclick: () => addSheet(selDay) }, ico("i-plus")))),
+        h("button", { class: "fab", "aria-label": tr("Новая задача"), onclick: () => addSheet(selDay) }, ico("i-plus")))),
     strip, gErrBox(),
     isToday && habits.length ? h("div", { class: "hstrip" }, habits.map(hb => {
       const on = !!hb.log?.[t];
       return h("button", { class: "hchip", "aria-pressed": String(on), onclick: () => toggleHabit(hb, t) }, on ? ico("i-check") : null, hb.name);
     })) : null,
-    overdue.length ? h("section", { class: "sec overdue" }, h("h2", {}, "Просрочено", h("span", { class: "n" }, overdue.length)), h("div", { class: "tline" }, overdue.map(x => card(x, { time: true })))) : null,
+    overdue.length ? h("section", { class: "sec overdue" }, h("h2", {}, tr("Просрочено"), h("span", { class: "n" }, overdue.length)), h("div", { class: "tline" }, overdue.map(x => card(x, { time: true })))) : null,
     h("section", { class: "sec" }, h("div", { class: "tline" },
-      line.length ? line.map(row) : h("div", { class: "blank" }, isToday ? HIRO_EL : mascotImg(), h("div", {}, isToday ? "На сегодня пусто. Миго отдыхает." : "На этот день пока ничего.")),
+      line.length ? line.map(row) : h("div", { class: "blank" }, isToday ? HIRO_EL : mascotImg(), h("div", {}, isToday ? tr("На сегодня пусто. Миго отдыхает.") : tr("На этот день пока ничего."))),
       slot)),
-    isToday && items.length && !left ? h("div", { class: "blank" }, HIRO_EL, h("div", {}, prefs.sleep ? "Всё на сегодня сделано. Миго спит." : "Всё на сегодня сделано.")) : null,
-    inbox.length ? h("section", { class: "sec" }, h("h2", {}, "Входящие", h("span", { class: "n" }, inbox.length)), h("div", { class: "tline" }, inbox.map(x => card(x)))) : null);
+    isToday && items.length && !left ? h("div", { class: "blank" }, HIRO_EL, h("div", {}, prefs.sleep ? tr("Всё на сегодня сделано. Миго спит.") : tr("Всё на сегодня сделано."))) : null,
+    inbox.length ? h("section", { class: "sec" }, h("h2", {}, tr("Входящие"), h("span", { class: "n" }, inbox.length)), h("div", { class: "tline" }, inbox.map(x => card(x)))) : null);
 }
 const viewTodayDesktop = VIEWS.today;
 VIEWS.today = () => PHONE.matches ? viewTodayPhone() : viewTodayDesktop();
@@ -1410,63 +1574,64 @@ async function exportData() {
   const filename = `mingyue-${today()}.json`;
   const dl = await window.claude?.use?.("downloads");
   if (dl) {
-    try { await dl.save({ filename, data }); } catch (e) { if (e?.code !== "declined" && e?.code !== "cancelled") toast("Не удалось сохранить файл"); }
+    try { await dl.save({ filename, data }); } catch (e) { if (e?.code !== "declined" && e?.code !== "cancelled") toast(tr("Не удалось сохранить файл")); }
     return;
   }
   const a = h("a", { href: URL.createObjectURL(new Blob([data], { type: "application/json" })), download: filename });
   document.body.append(a); a.click(); a.remove();
 }
 function viewSettings() {
-  const seg = (k, opts) => segControl("pref-" + k, opts, prefs[k], (v, btn) => setPref(k, v, btn), "Тема");
+  const seg = (k, opts) => segControl("pref-" + k, opts, prefs[k], (v, btn) => setPref(k, v, btn), tr("Тема"));
   const tgl = (k, label) => { const c = h("input", { type: "checkbox", class: "tgl", role: "switch", "aria-label": label, checked: prefs[k] }); c.addEventListener("change", () => setPref(k, c.checked)); return c; };
   const row = (label, sub, ctrl) => h("div", { class: "set-row" }, h("div", { class: "lbl" }, label, sub ? h("small", {}, sub) : null), ctrl);
   const group = (title, ...rows) => h("section", { class: "set-group" }, h("h2", {}, title), h("div", { class: "set-card" }, rows));
-  const counts = `${Object.keys(S.tasks).length} задач · ${Object.keys(S.habits).length} привычек · ${Object.keys(S.notes).length} заметок`;
+  const counts = LANG === "en" ? `${Object.keys(S.tasks).length} tasks · ${Object.keys(S.habits).length} habits · ${Object.keys(S.notes).length} notes` : `${Object.keys(S.tasks).length} задач · ${Object.keys(S.habits).length} привычек · ${Object.keys(S.notes).length} заметок`;
   return h("div", { class: "wrap" },
-    header("", "Настройки"),
+    header("", tr("Настройки")),
     h("div", { class: "set-card profile" }, avatarEl(),
       h("div", { class: "pinfo" }, (() => {
-        const inp = h("input", { class: "pname", type: "text", value: myName(), placeholder: "Ваше имя", "aria-label": "Имя", maxlength: "40", autocomplete: "given-name", enterkeyhint: "done" });
+        const inp = h("input", { class: "pname", type: "text", value: myName(), placeholder: tr("Ваше имя"), "aria-label": tr("Имя"), maxlength: "40", autocomplete: "given-name", enterkeyhint: "done" });
         const save = () => {
           const v = inp.value.trim(); if (v === (prefs.name || "")) return;
           setPref("name", v);
           $("#nav-avatar").replaceWith(Object.assign(avatarEl(), { id: "nav-avatar" }));
           $(".profile .avatar")?.replaceWith(avatarEl());
-          toast(v ? "Имя сохранено" : "Имя сброшено");
+          toast(v ? tr("Имя сохранено") : tr("Имя сброшено"));
         };
         inp.addEventListener("change", save);
         inp.addEventListener("keydown", e => { if (e.key === "Enter") inp.blur(); });
         return inp;
       })(), h("small", {}, h("i", { "data-mode": mode }), $("#sync span")?.textContent || ""))),
-    group("Оформление", row("Тема", null, seg("theme", [["auto", "Авто"], ["light", "Светлая"], ["dark", "Тёмная"]]))),
-    group("Миго",
-      row("Живые глаза", "Смотрит по сторонам и следит за курсором", tgl("eyes", "Живые глаза")),
-      row("Засыпание", "Засыпает, когда все задачи на сегодня сделаны", tgl("sleep", "Засыпание"))),
-    group("Интеграции",
-      row("Напоминания", null, h("span", { class: "soon" }, "скоро")),
-      row("Google Календарь", gStatusText(), (() => { const c = h("input", { type: "checkbox", class: "tgl", role: "switch", "aria-label": "Google Календарь", checked: prefs.gcal }); c.addEventListener("change", () => { setPref("gcal", c.checked); if (c.checked) gReload(); render(); }); return c; })()),
+    group(tr("Оформление"), row(tr("Тема"), null, seg("theme", [["auto", tr("Авто")], ["light", tr("Светлая")], ["dark", tr("Тёмная")]])),
+      row(tr("Язык"), null, segControl("pref-lang", [["ru", "Русский"], ["en", "English"]], LANG, v => { setPref("lang", v); setTimeout(() => location.reload(), 280); }, tr("Язык")))),
+    group(tr("Миго"),
+      row(tr("Живые глаза"), tr("Смотрит по сторонам и следит за курсором"), tgl("eyes", tr("Живые глаза"))),
+      row(tr("Засыпание"), tr("Засыпает, когда все задачи на сегодня сделаны"), tgl("sleep", tr("Засыпание")))),
+    group(tr("Интеграции"),
+      row(tr("Напоминания"), null, h("span", { class: "soon" }, tr("скоро"))),
+      row(tr("Google Календарь"), gStatusText(), (() => { const c = h("input", { type: "checkbox", class: "tgl", role: "switch", "aria-label": tr("Google Календарь"), checked: prefs.gcal }); c.addEventListener("change", () => { setPref("gcal", c.checked); if (c.checked) gReload(); render(); }); return c; })()),
       prefs.gcal && GC.state === "err" ? h("div", { class: "set-row" }, gErrBox()) : null),
-    group("Данные",
-      h("div", { class: "set-row" }, h("button", { class: "link", onclick: exportData }, "Экспорт в JSON", h("small", { style: "display:block;color:var(--h-muted);font-weight:500;font-size:12px" }, counts)))),
-    h("p", { class: "build" }, "Mingyue · " + (window.MINGYUE_BUILD ? "Android, сборка " + window.MINGYUE_BUILD : "claude.ai")));
+    group(tr("Данные"),
+      h("div", { class: "set-row" }, h("button", { class: "link", onclick: exportData }, tr("Экспорт в JSON"), h("small", { style: "display:block;color:var(--h-muted);font-weight:500;font-size:12px" }, counts)))),
+    h("p", { class: "build" }, "Mingyue · " + (window.MINGYUE_BUILD ? tr("Android, сборка ") + window.MINGYUE_BUILD : "claude.ai")));
 }
 VIEWS.settings = viewSettings;
 /* calendar tab: month grid with the chosen day's tasks below, or the whole year */
 let calMode = "month", calCursor = new Date(), calSel = today();
-const MON_NOM = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
+const MON_NOM = LANG === "en" ? ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"] : ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
 function viewCalendar() {
   const t = today(), all = tasks();
   const byDay = {}; for (const x of all) if (x.date) (byDay[x.date] ||= []).push(x);
   const y = calCursor.getFullYear(), m = calCursor.getMonth();
   const shift = n => { calCursor = calMode === "month" ? new Date(y, m + n, 1) : new Date(y + n, m, 1); render(); };
   const title = calMode === "month" ? `${MON_NOM[m]} ${y}` : String(y);
-  const seg = segControl("cal", [["month", "Месяц"], ["year", "Год"]], calMode, v => { calMode = v; render(); }, "Масштаб");
+  const seg = segControl("cal", [["month", tr("Месяц")], ["year", tr("Год")]], calMode, v => { calMode = v; render(); }, tr("Масштаб"));
   const head = h("div", { class: "cal-head" }, mascotImg(), h("h1", {}, title),
     h("div", { class: "cal-nav" },
-      h("button", { class: "btn icon", "aria-label": calMode === "month" ? "Прошлый месяц" : "Прошлый год", onclick: () => shift(-1) }, ico("i-left")),
-      h("button", { class: "btn icon", "aria-label": calMode === "month" ? "Следующий месяц" : "Следующий год", onclick: () => shift(1) }, ico("i-right"))));
+      h("button", { class: "btn icon", "aria-label": calMode === "month" ? tr("Прошлый месяц") : tr("Прошлый год"), onclick: () => shift(-1) }, ico("i-left")),
+      h("button", { class: "btn icon", "aria-label": calMode === "month" ? tr("Следующий месяц") : tr("Следующий год"), onclick: () => shift(1) }, ico("i-right"))));
   const bar = h("div", { class: "cal-bar" }, seg,
-    h("button", { class: "btn", onclick: () => { calCursor = new Date(); calSel = t; render(); } }, "Сегодня"));
+    h("button", { class: "btn", onclick: () => { calCursor = new Date(); calSel = t; render(); } }, tr("Сегодня")));
   head.querySelector(".mascot").style.cssText = "width:40px;height:41px;flex:none";
   if (calMode === "year") {
     return h("div", { class: "wrap" }, head, bar, h("div", { class: "year" }, MON_NOM.map((name, mi) => {
@@ -1484,15 +1649,15 @@ function viewCalendar() {
   for (let d = start; cells.length < 42 && (cells.length < 35 || d.getMonth() === m); d = addDays(d, 1)) cells.push(d);
   const grid = h("div", { class: "mgrid" }, DOW.map(d => h("div", { class: "dh" }, d)), cells.map(d => {
     const k = ymd(d), open = (byDay[k] || []).filter(x => !x.done);
-    return h("button", { class: "mcell" + (d.getMonth() !== m ? " out" : "") + (k === t ? " today" : "") + (k === calSel ? " sel" : ""), "aria-label": `${dateLabel(k)}, задач: ${open.length}`, "aria-pressed": String(k === calSel), onclick: () => { calSel = k; if (d.getMonth() !== m) calCursor = new Date(d.getFullYear(), d.getMonth(), 1); render(); } },
+    return h("button", { class: "mcell" + (d.getMonth() !== m ? " out" : "") + (k === t ? " today" : "") + (k === calSel ? " sel" : ""), "aria-label": `${dateLabel(k)}, ${tr("задач:")} ${open.length}`, "aria-pressed": String(k === calSel), onclick: () => { calSel = k; if (d.getMonth() !== m) calCursor = new Date(d.getFullYear(), d.getMonth(), 1); render(); } },
       h("b", {}, d.getDate()), h("span", { class: "pips" }, [...open.map(x => h("i", { class: k < t ? "late" : "" })), ...gDay(k).map(() => h("i", { class: "ev" }))].slice(0, 3)));
   }));
   const items = [...(byDay[calSel] || []), ...gDay(calSel).map(e => ({ ev: e, time: e.time }))].sort((a, b) => (a.time || "").localeCompare(b.time || "") || (a.createdAt || 0) - (b.createdAt || 0));
   const sd = parse(calSel);
   return h("div", { class: "wrap" }, head, bar, gErrBox(), h("div", { class: "month" }, grid),
     h("section", { class: "sec" }, h("h2", {}, `${DOW_FULL[dowIdx(sd)]}, ${sd.getDate()} ${MON_GEN[sd.getMonth()]}`, h("span", { class: "n" }, items.length || "")),
-      h("div", { class: "tline" }, items.map(x => h("div", { class: "tl" }, h("div", { class: "tl-time" }, x.time ? h("b", {}, x.time) : h("span", {}, "день")), x.ev ? evRow(x.ev, { card: true, noTime: true }) : card(x))),
-        h("button", { class: "slot", onclick: () => addSheet(calSel) }, ico("i-plus"), "Добавить задачу на этот день"))));
+      h("div", { class: "tline" }, items.map(x => h("div", { class: "tl" }, h("div", { class: "tl-time" }, x.time ? h("b", {}, x.time) : h("span", {}, tr("день"))), x.ev ? evRow(x.ev, { card: true, noTime: true }) : card(x))),
+        h("button", { class: "slot", onclick: () => addSheet(calSel) }, ico("i-plus"), tr("Добавить задачу на этот день")))));
 }
 VIEWS.week = () => PHONE.matches ? viewCalendar() : viewWeek();
 /* tab bar: the black pill slides to the chosen tab, the screen slides in from that side */
@@ -1567,7 +1732,7 @@ async function gLogin(interactive) {
 }
 async function gSignIn() {
   try { await gToken(true); GC.state = "idle"; gReload(); }
-  catch (e) { toast("Не удалось войти в Google" + (e?.message ? ": " + e.message.slice(0, 100) : "")); }
+  catch (e) { toast(tr("Не удалось войти в Google") + (e?.message ? ": " + e.message.slice(0, 100) : "")); }
 }
 function gNative() {
   const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -1608,7 +1773,7 @@ function gIndex() {
   for (const list of Object.values(GC.months)) if (Array.isArray(list)) for (const e of list) {
     if (own.has(e.id) || e.status === "cancelled") continue;
     const s = e.start || {}, en = e.end || {};
-    const base = { id: e.id, title: e.summary || "Без названия", link: e.htmlLink || null };
+    const base = { id: e.id, title: e.summary || tr("Без названия"), link: e.htmlLink || null };
     if (s.dateTime) {
       const k = s.dateTime.slice(0, 10), ek = (en.dateTime || s.dateTime).slice(0, 10);
       const item = { ...base, time: s.dateTime.slice(11, 16), until: ek === k ? (en.dateTime || "").slice(11, 16) : "" };
@@ -1685,24 +1850,24 @@ function gReload() {
   for (const k of ks) gLoad(k, { force: true, refresh: true });
 }
 const G_HELP = {
-  server_not_connected: "Google Календарь не подключён. Добавьте его в claude.ai: Настройки → Коннекторы.",
-  needs_reauth: "Вход в Google истёк. Переподключите Google Календарь в claude.ai: Настройки → Коннекторы.",
-  selection_required: "Подключено несколько Google Календарей. Выберите один в окне claude.ai.",
-  not_in_manifest: "Доступ к календарю для Mingyue не разрешён.",
-  approval_required: "Нужно разрешить Mingyue доступ к календарю.",
-  blocked_by_policy: "Доступ к календарю запрещён настройками организации.",
-  native_signin: "Войдите в Google, чтобы видеть события календаря.",
+  server_not_connected: tr("Google Календарь не подключён. Добавьте его в claude.ai: Настройки → Коннекторы."),
+  needs_reauth: tr("Вход в Google истёк. Переподключите Google Календарь в claude.ai: Настройки → Коннекторы."),
+  selection_required: tr("Подключено несколько Google Календарей. Выберите один в окне claude.ai."),
+  not_in_manifest: tr("Доступ к календарю для Mingyue не разрешён."),
+  approval_required: tr("Нужно разрешить Mingyue доступ к календарю."),
+  blocked_by_policy: tr("Доступ к календарю запрещён настройками организации."),
+  native_signin: tr("Войдите в Google, чтобы видеть события календаря."),
 };
 function gStatusText() {
-  if (!prefs.gcal) return "Выключен";
-  if (GC.state === "na") return "Работает, когда Mingyue открыт в claude.ai";
-  if (GC.state === "err") return G_HELP[GC.code] || "Календарь сейчас не отвечает. Попробуйте позже.";
-  if (GC.state === "ok" && GC.offline) return "Нет связи, показываю события, сохранённые " + new Date(GC.offline).toLocaleString("ru-RU", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
-  if (GC.state === "ok") return "Подключён, события видны рядом с задачами";
-  return "Подключаю…";
+  if (!prefs.gcal) return tr("Выключен");
+  if (GC.state === "na") return tr("Работает, когда Mingyue открыт в claude.ai");
+  if (GC.state === "err") return G_HELP[GC.code] || tr("Календарь сейчас не отвечает. Попробуйте позже.");
+  if (GC.state === "ok" && GC.offline) return tr("Нет связи, показываю события, сохранённые ") + new Date(GC.offline).toLocaleString(LOC, { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+  if (GC.state === "ok") return tr("Подключён, события видны рядом с задачами");
+  return tr("Подключаю…");
 }
 function evRow(e, opts = {}) {
-  const when = e.time ? e.time + (e.until ? "–" + e.until : "") : "весь день";
+  const when = e.time ? e.time + (e.until ? "–" + e.until : "") : tr("весь день");
   return h("div", { class: "task ev" + (opts.card ? " card" : "") },
     h("span", { class: "evbar", "aria-hidden": "true" }),
     h(e.link ? "a" : "span", { class: "t", href: e.link || null, target: e.link ? "_blank" : null, rel: e.link ? "noopener" : null },
@@ -1713,35 +1878,35 @@ function gErrBox() {
   if (!prefs.gcal || GC.state !== "err") return null;
   const fixable = GC.code === "not_in_manifest" || GC.code === "approval_required" || GC.code === "server_unavailable" || GC.code === "upstream_error";
   return h("div", { class: "gerr" }, h("span", {}, gStatusText()),
-    GC.code === "native_signin" ? h("button", { class: "btn", onclick: gSignIn }, "Войти в Google") :
-    fixable ? h("button", { class: "btn", onclick: () => gReload() }, GC.code === "not_in_manifest" || GC.code === "approval_required" ? "Разрешить" : "Повторить") : null);
+    GC.code === "native_signin" ? h("button", { class: "btn", onclick: gSignIn }, tr("Войти в Google")) :
+    fixable ? h("button", { class: "btn", onclick: () => gReload() }, GC.code === "not_in_manifest" || GC.code === "approval_required" ? tr("Разрешить") : tr("Повторить")) : null);
 }
 async function sendToCalendar(t, vals, btn) {
   const date = vals.date, time = vals.time;
-  if (!date) { toast("Сначала укажите дату"); return; }
+  if (!date) { toast(tr("Сначала укажите дату")); return; }
   const m = await gMcp();
-  if (!m) { toast("Календарь работает, когда Mingyue открыт в claude.ai"); return; }
-  btn.disabled = true; btn.textContent = "Добавляю…";
+  if (!m) { toast(tr("Календарь работает, когда Mingyue открыт в claude.ai")); return; }
+  btn.disabled = true; btn.textContent = tr("Добавляю…");
   let input;
   if (time) {
     const s = new Date(`${date}T${time}:00`), e = new Date(s.getTime() + 60 * 60000);
     const iso = d => `${ymd(d)}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:00`;
-    input = { summary: vals.title, startTime: iso(s), endTime: iso(e), description: "Из Mingyue" };
+    input = { summary: vals.title, startTime: iso(s), endTime: iso(e), description: tr("Из Mingyue") };
   } else {
-    input = { summary: vals.title, allDay: true, startTime: `${date}T00:00:00`, endTime: `${ymd(addDays(parse(date), 1))}T00:00:00`, description: "Из Mingyue" };
+    input = { summary: vals.title, allDay: true, startTime: `${date}T00:00:00`, endTime: `${ymd(addDays(parse(date), 1))}T00:00:00`, description: tr("Из Mingyue") };
   }
   try {
     const r = await m.callTool(GSRV, "create_event", input, { cache: false });
     const p = r.payload || {}, ev = p.event || p;
     put("tasks", { ...t, title: vals.title, date, time: time || null, gcal: { id: ev.id || null, link: ev.htmlLink || null, at: Date.now() } });
-    toast("Добавлено в Google Календарь");
+    toast(tr("Добавлено в Google Календарь"));
     m.invalidate?.(GSRV, "list_events").catch(() => {});
     $(".scrim")?.remove();
   } catch (err) {
-    btn.disabled = false; btn.textContent = "В Google Календарь";
+    btn.disabled = false; btn.textContent = tr("В Google Календарь");
     const c = err?.code;
-    if (c === "server_unavailable" || c === "upstream_error" || c === "cancelled") toast("Не знаю, создалось ли событие. Проверьте календарь, прежде чем жать ещё раз.");
-    else toast(G_HELP[c] || "Календарь не принял событие" + (err?.message ? ": " + err.message.slice(0, 120) : ""));
+    if (c === "server_unavailable" || c === "upstream_error" || c === "cancelled") toast(tr("Не знаю, создалось ли событие. Проверьте календарь, прежде чем жать ещё раз."));
+    else toast(G_HELP[c] || tr("Календарь не принял событие") + (err?.message ? ": " + err.message.slice(0, 120) : ""));
   }
 }
 if (prefs.gcal) gLoad(today().slice(0, 7));
