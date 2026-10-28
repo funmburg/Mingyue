@@ -1537,6 +1537,23 @@ function gIndex() {
   for (const k in by) by[k].sort((a, b) => (a.time || "").localeCompare(b.time || ""));
   GC.byDay = by;
 }
+/* last loaded months are kept on the device, so events stay visible offline */
+const GCACHE = "mingyue.gcal";
+function gCacheRead() { try { return JSON.parse(localStorage.getItem(GCACHE)) || { months: {} }; } catch { return { months: {} }; } }
+function gCacheSave(mk, list) {
+  try {
+    const c = gCacheRead(); c.months[mk] = { at: Date.now(), list };
+    const keep = Object.keys(c.months).sort().slice(-14);
+    c.months = Object.fromEntries(keep.map(k => [k, c.months[k]]));
+    localStorage.setItem(GCACHE, JSON.stringify(c));
+  } catch {}
+}
+function gFromCache(mk) {
+  const c = gCacheRead().months[mk];
+  if (!c) return false;
+  GC.months[mk] = c.list; GC.offline = Math.min(GC.offline || Infinity, c.at); gIndex();
+  return true;
+}
 function gFail(err) {
   GC.state = "err"; GC.code = err?.code || "upstream_error"; GC.msg = err?.message || "";
 }
@@ -1558,10 +1575,10 @@ async function gLoad(mk, opts = {}) {
         token = p.nextPageToken || null;
       } while (token && ++pages < 4);
       GC.months[mk] = all.map(({ id, summary, start, end, htmlLink, status }) => ({ id, summary, start, end, htmlLink, status }));
-      GC.state = "ok"; GC.code = ""; gIndex();
+      GC.state = "ok"; GC.code = ""; GC.offline = 0; gIndex(); gCacheSave(mk, GC.months[mk]);
     } catch (err) {
       if (err?.retryable && !retried) { await new Promise(r => setTimeout(r, (err.retryAfterMs || 1500) + Math.random() * 800)); return run(true); }
-      gFail(err);
+      if (gFromCache(mk)) { GC.state = "ok"; GC.code = ""; } else gFail(err);
     }
   };
   if (GC.state !== "ok") GC.state = "loading";
@@ -1593,6 +1610,7 @@ function gStatusText() {
   if (!prefs.gcal) return "Выключен";
   if (GC.state === "na") return "Работает, когда Mingyue открыт в claude.ai";
   if (GC.state === "err") return G_HELP[GC.code] || "Календарь сейчас не отвечает. Попробуйте позже.";
+  if (GC.state === "ok" && GC.offline) return "Нет связи, показываю события, сохранённые " + new Date(GC.offline).toLocaleString("ru-RU", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
   if (GC.state === "ok") return "Подключён, события видны рядом с задачами";
   return "Подключаю…";
 }
