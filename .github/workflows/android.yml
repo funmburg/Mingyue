@@ -108,9 +108,9 @@ jobs:
             --notes "Сборка $(date -u +'%d.%m.%Y %H:%M') UTC, коммит ${GITHUB_SHA::7}. Скачайте mingyue.apk и откройте его на телефоне." \
             --latest
 
-      # Test builds from "next" go to a separate pre-release, so the main download stays untouched
+      # Test builds (next or a feature branch, run by hand) go to a separate pre-release, so the main download stays untouched
       - name: Publish to the "test" pre-release
-        if: github.ref == 'refs/heads/next'
+        if: github.ref != 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
