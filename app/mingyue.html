@@ -1795,12 +1795,17 @@ function gToken(interactive) {
 async function gLogin(interactive) {
   // no quiet attempt before the first real sign-in: a failed quiet try leaves Google's account picker in a bad state
   if (!interactive && !localStorage.getItem(GTOK + ".ok")) throw Object.assign(new Error("not signed in"), { code: "native_signin" });
+  // quiet refresh: a new token from the permission already given, never a sign-in sheet
+  if (!interactive) {
+    const q = window.Capacitor?.Plugins?.QuietGoogle;
+    try { const t = (await q.token({ scopes: [GSCOPE] }))?.accessToken; if (!t) throw 0; localStorage.setItem(GTOK, JSON.stringify({ v: t, exp: Date.now() + 50 * 60000 })); return t; }
+    catch { throw Object.assign(new Error("needs sign-in"), { code: "native_signin" }); }
+  }
   gInit ||= GNATIVE.initialize({ google: { webClientId: GWEB_ID } });
   await gInit;
   let r;
   try {
-    r = await GNATIVE.login({ provider: "google", options: interactive ? { scopes: [GSCOPE] }
-      : { scopes: [GSCOPE], style: "bottom", filterByAuthorizedAccounts: true, autoSelectEnabled: true } });
+    r = await GNATIVE.login({ provider: "google", options: { scopes: [GSCOPE] } });
   } catch (e) { throw Object.assign(new Error(e?.message || "sign-in failed"), { code: "native_signin" }); }
   const at = r?.result?.accessToken?.token;
   if (!at) throw Object.assign(new Error("no access token"), { code: "native_signin" });

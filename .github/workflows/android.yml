@@ -39,6 +39,7 @@ jobs:
           npx cap sync android
           # MainActivity that hands Google consent results to the sign-in plugin
           cp ci/native/MainActivity.java android/app/src/main/java/com/funmburg/mingyue/MainActivity.java
+          cp ci/native/QuietGooglePlugin.java android/app/src/main/java/com/funmburg/mingyue/
           # reminders: status-bar icon, and exact alarms so a reminder fires on the minute
           cp ci/native/res/drawable/ic_stat_migo.xml android/app/src/main/res/drawable/
           sed -i 's#</manifest>#    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />\n</manifest>#' android/app/src/main/AndroidManifest.xml
@@ -55,6 +56,10 @@ jobs:
       - name: Sign with the repo's debug key
         run: |
           cat >> android/app/build.gradle <<'GRADLE'
+
+          dependencies {
+              implementation "com.google.android.gms:play-services-auth:21.4.0"
+          }
 
           android {
               signingConfigs {
