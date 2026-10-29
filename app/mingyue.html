@@ -372,6 +372,11 @@ main { min-width: 0; padding-block: 28px 120px; padding-left: max(16px, env(safe
 .editor .bar .grow { flex: 1; }
 .editor textarea { flex: 1; border: 0; background: transparent; resize: none; padding: 16px 18px; outline: none; font-size: 16px; line-height: 1.6; min-height: 55vh; }
 .back { display: none; align-items: center; gap: 6px; }
+.ntctl { display: inline-flex; gap: 6px; flex: none; }
+.ntctl a.btn { color: inherit; text-decoration: none; }
+.ntctl button[aria-label] { font-size: 18px; line-height: 1; padding-inline: 10px; }
+.nthelp { color: var(--h-muted); font-size: 12px; line-height: 1.45; }
+.ntro { padding: 8px 18px; font-size: 12px; color: var(--h-muted); border-bottom: 1px solid var(--h-line); }
 .back svg { width: 16px; height: 16px; }
 
 /* sheet */
@@ -1027,7 +1032,35 @@ const EN = {
   "Загрузка": "Loading",
   "Язык": "Language",
   "Русский": "Русский",
-  "Интерфейс приложения": "App interface"
+  "Интерфейс приложения": "App interface",
+  "Нет связи с Notion": "No connection to Notion",
+  "Notion не принял токен, подключите заново": "Notion rejected the token, connect again",
+  "Нет доступа к базе Notion: откройте её для интеграции": "No access to the Notion database: share it with the integration",
+  "В теге только буквы, цифры, - и _": "A tag can only have letters, digits, - and _",
+  "Токен начинается с ntn_ или secret_": "The token starts with ntn_ or secret_",
+  "Интеграции открыто несколько баз, вставьте ссылку на нужную": "Several databases are shared with the integration, paste a link to the one you want",
+  "Интеграции не открыта ни одна страница. В Notion: ⋯ → Подключения → Mingyue": "No page is shared with the integration. In Notion: ⋯ → Connections → Mingyue",
+  "Заметки Mingyue": "Mingyue notes",
+  "Название": "Name",
+  "Теги": "Tags",
+  "Нет доступа к странице. В Notion: ⋯ → Подключения → Mingyue": "No access to the page. In Notion: ⋯ → Connections → Mingyue",
+  "Работает в приложении для Android": "Works in the Android app",
+  "Заметки с тегом синхронизируются с базой Notion": "Notes with a tag sync with a Notion database",
+  "Синхронизирую…": "Syncing…",
+  "необязательно": "optional",
+  "Notion подключён": "Notion connected",
+  "Подключить": "Connect",
+  "Не получилось подключить Notion": "Could not connect Notion",
+  "1. notion.so/profile/integrations → Новая интеграция «Mingyue», скопируйте токен. 2. В Notion на нужной странице или базе: ⋯ → Подключения → Mingyue.": "1. notion.so/profile/integrations → New integration “Mingyue”, copy the token. 2. In Notion, on the page or database: ⋯ → Connections → Mingyue.",
+  "Токен интеграции": "Integration token",
+  "Ссылка на базу или страницу": "Link to a database or page",
+  "Тег": "Tag",
+  "В Notion уходят заметки с #тегом в тексте, из Notion приходят страницы базы с этим тегом.": "Notes with the #tag in their text go to Notion; database pages with that tag come from Notion.",
+  "В Notion": "To Notion",
+  "Убрать из Notion": "Remove from Notion",
+  "В Notion у этой заметки есть картинки, таблицы или вложенные блоки, поэтому правится она в Notion": "This note has pictures, tables or nested blocks in Notion, so edit it in Notion",
+  "Обновить": "Sync now",
+  "Настроить": "Settings"
 };
 const pl = (n, ru1, ru2, ru5, en1, enN) => LANG === "en" ? (n === 1 ? en1 : enN) : plural(n, ru1, ru2, ru5);
 document.documentElement.lang = LANG;
@@ -1134,12 +1167,14 @@ async function initStore() {
 const pending = {};
 function put(c, obj) {
   obj._at = Date.now(); S[c][obj.id] = obj; render();
+  if (c === "notes") ntSoon();
   if (!base) { fbDirty(c, obj.id); return saveLocal(); }
   const key = c + "/" + obj.id;
   const write = () => base.collection(c).doc(obj.id).set(JSON.parse(JSON.stringify(obj))).catch(e => toast(e?.code === "quota_exceeded" ? tr("Хранилище заполнено, удалите старое") : tr("Не сохранилось, проверьте сеть")));
   pending[key] = (pending[key] || Promise.resolve()).then(write);
 }
 function del(c, id) {
+  if (c === "notes" && S.notes[id]?.nt?.pid) ntGone(S.notes[id].nt.pid, "archive");
   delete S[c][id]; render();
   if (!base) { fbDirty(c, id, true); return saveLocal(); }
   base.collection(c).doc(id).delete().catch(() => toast(tr("Не удалилось, проверьте сеть")));
@@ -1332,6 +1367,7 @@ function viewNotes() {
   if (cur) {
     const ta = h("textarea", { id: "note-body", placeholder: tr("Первая строка станет заголовком") });
     ta.value = cur.body || "";
+    if (cur.nt?.ro) ta.readOnly = true;
     ta.addEventListener("input", () => {
       clearTimeout(noteTimer);
       noteTimer = setTimeout(() => put("notes", { ...S.notes[cur.id], body: ta.value, updatedAt: Date.now() }), 600);
@@ -1340,14 +1376,15 @@ function viewNotes() {
     const delBtn = h("button", { class: "btn danger", onclick: () => { if (!armed) { armed = true; delBtn.textContent = tr("Точно удалить?"); return; } clearTimeout(noteTimer); del("notes", cur.id); openNote = null; render(); } }, tr("Удалить"));
     editor = h("div", { class: "editor" },
       h("div", { class: "bar" }, h("button", { class: "btn back", onclick: () => { openNote = null; render(); } }, ico("i-left"), tr("Все заметки")),
-        h("span", { class: "grow" }, tr("Изменено ") + new Date(cur.updatedAt).toLocaleString(LOC, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })), delBtn),
+        h("span", { class: "grow" }, tr("Изменено ") + new Date(cur.updatedAt).toLocaleString(LOC, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })), ntNoteBtn(cur), delBtn),
+      cur.nt?.ro ? h("div", { class: "ntro" }, tr("В Notion у этой заметки есть картинки, таблицы или вложенные блоки, поэтому правится она в Notion")) : null,
       ta);
   } else editor = h("div", { class: "editor" }, blank(notes.length ? tr("Выберите заметку слева") : tr("Заметок пока нет. Создайте первую."), true));
   return h("div", { class: "wrap wide", style: "max-width:1100px" },
     header(tr("Мысли, списки, идеи"), tr("Заметки"), null, h("button", { class: "btn primary newnote", onclick: create }, tr("Новая заметка"))),
     h("div", { class: "notes" + (cur ? " editing" : "") },
       h("div", { class: "nlist" }, notes.length ? notes.map(n => h("button", { class: "nitem", "aria-current": String(n.id === openNote), onclick: () => { openNote = n.id; render(); } },
-        h("b", {}, noteTitle(n)), h("span", {}, new Date(n.updatedAt).toLocaleDateString(LOC, { day: "numeric", month: "long" })))) : h("div", { class: "empty" }, tr("Пусто"))),
+        h("b", {}, noteTitle(n)), h("span", {}, new Date(n.updatedAt).toLocaleDateString(LOC, { day: "numeric", month: "long" }) + (ntOn(n) ? " · Notion" : "")))) : h("div", { class: "empty" }, tr("Пусто"))),
       editor));
 }
 
@@ -1687,7 +1724,10 @@ function viewSettings() {
       row(tr("Утренний план"), tr("В 9:00: сколько дел на сегодня"), (() => { const c = h("input", { type: "checkbox", class: "tgl", role: "switch", "aria-label": tr("Утренний план"), checked: prefs.digest }); c.addEventListener("change", () => { setPref("digest", c.checked); syncReminders(true).catch(() => {}); }); return c; })())])),
     group(tr("Интеграции"),
       row(tr("Google Календарь"), gStatusText(), (() => { const c = h("input", { type: "checkbox", class: "tgl", role: "switch", "aria-label": tr("Google Календарь"), checked: prefs.gcal }); c.addEventListener("change", () => { setPref("gcal", c.checked); if (c.checked) gReload(); render(); }); return c; })()),
-      prefs.gcal && GC.state === "err" ? h("div", { class: "set-row" }, gErrBox()) : null),
+      prefs.gcal && GC.state === "err" ? h("div", { class: "set-row" }, gErrBox()) : null,
+      row("Notion", ntStatus(), !NHTTP ? null : ntCfg()
+        ? h("span", { class: "ntctl" }, h("button", { class: "btn", onclick: () => { ntSync(); render(); } }, tr("Обновить")), h("button", { class: "btn", onclick: ntSheet }, tr("Настроить")))
+        : h("button", { class: "btn", onclick: ntSheet }, tr("Подключить")))),
     group(tr("Данные"),
       h("div", { class: "set-row" }, h("button", { class: "link", onclick: exportData }, tr("Экспорт в JSON"), h("small", { style: "display:block;color:var(--h-muted);font-weight:500;font-size:12px" }, counts)))),
     h("p", { class: "build" }, "Mingyue · " + (window.MINGYUE_BUILD ? tr("Android, сборка ") + window.MINGYUE_BUILD : "claude.ai")));
@@ -2101,6 +2141,238 @@ async function sendToCalendar(t, vals, btn) {
     if (c === "server_unavailable" || c === "upstream_error" || c === "cancelled") toast(tr("Не знаю, создалось ли событие. Проверьте календарь, прежде чем жать ещё раз."));
     else toast(G_HELP[c] || tr("Календарь не принял событие") + (err?.message ? ": " + err.message.slice(0, 120) : ""));
   }
+}
+/* ---------- Notion: two-way sync of the notes that carry the tag (Android app) ---------- */
+// Notion's API doesn't answer web pages (no CORS), so the app calls it through Capacitor's native HTTP.
+// A note joins the sync when its text has #tag or it was switched on in the editor; from Notion come the
+// database pages whose tags property has the tag. Notion only keeps edit times to the minute, so a change
+// is spotted by comparing what was last synced (edit time there, text hash here), not by clocks.
+const NHTTP = window.Capacitor?.isNativePlatform?.() ? window.Capacitor.Plugins?.CapacitorHttp : null;
+const NT = { ls: "mingyue.notion", gone: "mingyue.ntgone", busy: null, again: false, timer: 0, at: 0, err: "", quiet: false };
+const ntCfg = () => NHTTP ? fbRead(NT.ls) : null;
+const ntId = s => String(s || "").replace(/-/g, "").toLowerCase();
+const ntTagRe = flags => new RegExp(`(^|\\s)#${ntCfg()?.tag || "notion"}(?![\\p{L}\\p{N}_-])`, "iu" + (flags || ""));
+const ntHas = n => !!ntCfg() && ntTagRe().test(n.body || "");
+const ntOn = n => !!ntCfg() && (!!n.nt || ntHas(n));
+const ntStrip = body => (body || "").split("\n").map(l => ntTagRe().test(l) ? l.replace(ntTagRe("g"), "$1").trimEnd() || null : l).filter(l => l !== null).join("\n");
+async function ntApi(path, method = "GET", data, token) {
+  for (let i = 0; ; i++) {
+    let r;
+    try {
+      r = await NHTTP.request({ url: "https://api.notion.com/v1/" + path, method, data,
+        headers: { Authorization: "Bearer " + (token || ntCfg()?.token), "Notion-Version": "2022-06-28", "Content-Type": "application/json" } });
+    } catch { throw Object.assign(new Error(tr("Нет связи с Notion")), { net: true }); }
+    let j = r.data; if (typeof j === "string") try { j = JSON.parse(j); } catch { j = {}; }
+    if (r.status === 429 && i < 4) { await new Promise(ok => setTimeout(ok, 1000 * (+(r.headers?.["Retry-After"] || r.headers?.["retry-after"]) || i + 1))); continue; }
+    if (r.status >= 400) throw Object.assign(new Error(j?.message || "HTTP " + r.status), { status: r.status });
+    return j || {};
+  }
+}
+/* note text <-> Notion blocks: first line is the title, then one block per line; "- ", "[ ] ", "# ", "> ", "1. " keep their meaning */
+const ntRT = s => { const out = []; for (let i = 0; i < s.length; i += 2000) out.push({ type: "text", text: { content: s.slice(i, i + 2000) } }); return out; };
+const ntPlain = rt => (rt || []).map(x => x.plain_text ?? x.text?.content ?? "").join("");
+function ntBlock(line) {
+  let m, type = "paragraph", extra = {};
+  if (line.trim() === "---") return { object: "block", type: "divider", divider: {} };
+  if ((m = /^(#{1,3}) (.*)$/.exec(line))) { type = "heading_" + m[1].length; line = m[2]; }
+  else if ((m = /^\[([ xX])\] (.*)$/.exec(line))) { type = "to_do"; extra.checked = m[1] !== " "; line = m[2]; }
+  else if ((m = /^[-•*] (.*)$/.exec(line))) { type = "bulleted_list_item"; line = m[1]; }
+  else if ((m = /^\d+[.)] (.*)$/.exec(line))) { type = "numbered_list_item"; line = m[1]; }
+  else if ((m = /^> (.*)$/.exec(line))) { type = "quote"; line = m[1]; }
+  return { object: "block", type, [type]: { rich_text: ntRT(line), ...extra } };
+}
+function ntLine(b) {
+  const v = b[b.type], t = ntPlain(v?.rich_text);
+  switch (b.type) {
+    case "paragraph": return t;
+    case "heading_1": return "# " + t;
+    case "heading_2": return "## " + t;
+    case "heading_3": return "### " + t;
+    case "to_do": return (v.checked ? "[x] " : "[ ] ") + t;
+    case "bulleted_list_item": return "- " + t;
+    case "numbered_list_item": return "1. " + t;
+    case "quote": return "> " + t;
+    case "divider": return "---";
+    default: return null;
+  }
+}
+function ntSplit(body) {
+  const lines = ntStrip(body).split("\n"), i = lines.findIndex(l => l.trim());
+  const title = i < 0 ? "" : lines[i].replace(/^#{1,3} /, "").trim(), rest = i < 0 ? [] : lines.slice(i + 1);
+  while (rest.length && !rest[rest.length - 1].trim()) rest.pop();
+  return { title: title || tr("Без названия"), blocks: rest.map(ntBlock) };
+}
+async function ntChildren(pid) {
+  const out = []; let cur = "";
+  do {
+    const j = await ntApi(`blocks/${pid}/children?page_size=100${cur ? "&start_cursor=" + cur : ""}`);
+    out.push(...(j.results || [])); cur = j.has_more ? j.next_cursor : "";
+  } while (cur);
+  return out;
+}
+async function ntAppend(pid, blocks) { for (let i = 0; i < blocks.length; i += 100) await ntApi(`blocks/${pid}/children`, "PATCH", { children: blocks.slice(i, i + 100) }); }
+/* send a note: new page, or the title and all blocks replaced */
+async function ntPush(n, c) {
+  const body = n.body || "", { title, blocks } = ntSplit(body);
+  let pid = n.nt?.pid;
+  if (pid) {
+    await ntApi("pages/" + pid, "PATCH", { properties: { [c.tprop]: { title: ntRT(title) } } });
+    for (const b of await ntChildren(pid)) await ntApi("blocks/" + b.id, "DELETE");
+    await ntAppend(pid, blocks);
+  } else {
+    const p = await ntApi("pages", "POST", { parent: { database_id: c.db },
+      properties: { [c.tprop]: { title: ntRT(title) }, [c.tags]: { multi_select: [{ name: c.tag }] } }, children: blocks.slice(0, 100) });
+    pid = ntId(p.id); await ntAppend(pid, blocks.slice(100));
+  }
+  const p = await ntApi("pages/" + pid), cur = S.notes[n.id];
+  if (!cur) return ntGone(pid, "archive"); // deleted while it was being sent
+  put("notes", { ...cur, nt: { pid, et: p.last_edited_time, h: nid(body), url: p.url || "" } });
+}
+/* take a page into a note; a page with pictures, tables or nested blocks is read-only here, so they don't get lost */
+async function ntPull(p, n, c) {
+  let ro = false; const lines = [];
+  for (const b of await ntChildren(p.id)) { const l = ntLine(b); if (l === null || b.has_children) ro = true; if (l !== null) lines.push(l); }
+  const body = [ntPlain(p.properties?.[c.tprop]?.title) || tr("Без названия"), ...lines].join("\n").replace(/\n+$/, "");
+  const nt = { pid: ntId(p.id), et: p.last_edited_time, h: nid(body), url: p.url || "", ro };
+  put("notes", n ? { ...S.notes[n.id], body, nt, updatedAt: Date.parse(p.last_edited_time) }
+    : { id: uid(), body, nt, updatedAt: Date.parse(p.last_edited_time), createdAt: Date.parse(p.created_time) });
+}
+/* a note deleted or switched off here: the page goes to Notion's trash, or just loses the tag */
+function ntGone(pid, what) {
+  if (NT.quiet || !ntCfg()) return;
+  const g = fbRead(NT.gone) || {}; g[pid] = what; fbWrite(NT.gone, g); ntSoon();
+}
+function ntSoon(ms = 3000) { if (!ntCfg()) return; clearTimeout(NT.timer); NT.timer = setTimeout(() => ntSync().catch(() => {}), ms); }
+async function ntRun(c) {
+  for (const [pid, what] of Object.entries(fbRead(NT.gone) || {})) {
+    try {
+      if (what === "archive") await ntApi("pages/" + pid, "PATCH", { archived: true });
+      else {
+        const p = await ntApi("pages/" + pid), keep = (p.properties?.[c.tags]?.multi_select || []).filter(o => o.name.toLowerCase() !== c.tag.toLowerCase());
+        await ntApi("pages/" + pid, "PATCH", { properties: { [c.tags]: { multi_select: keep.map(o => ({ name: o.name })) } } });
+      }
+    } catch (e) { if (e.net || e.status === 401 || e.status === 429 || e.status >= 500) throw e; } // gone already or no access: nothing to do
+    const g = fbRead(NT.gone) || {}; delete g[pid]; fbWrite(NT.gone, g);
+  }
+  const pages = []; let cur = null;
+  do {
+    const j = await ntApi(`databases/${c.db}/query`, "POST", { filter: { property: c.tags, multi_select: { contains: c.tag } }, page_size: 100, ...(cur ? { start_cursor: cur } : {}) });
+    pages.push(...(j.results || [])); cur = j.has_more ? j.next_cursor : null;
+  } while (cur);
+  const remote = {}, local = {};
+  for (const p of pages) remote[ntId(p.id)] = p;
+  for (const n of Object.values(S.notes)) if (n.nt?.pid) local[n.nt.pid] = n;
+  const editing = document.activeElement?.id === "note-body" ? openNote : null;
+  for (const [pid, p] of Object.entries(remote)) {
+    const n = local[pid] && S.notes[local[pid].id];
+    const theirs = !n || p.last_edited_time !== n.nt.et, mine = n && nid(n.body || "") !== n.nt.h;
+    // both sides changed: the later edit wins
+    if (theirs && (!mine || Date.parse(p.last_edited_time) >= n.updatedAt)) { if (!n || n.id !== editing) await ntPull(p, n, c); }
+    else if (mine && !n.nt.ro) await ntPush(n, c);
+  }
+  for (const [pid, n0] of Object.entries(local)) {
+    const n = S.notes[n0.id]; if (remote[pid] || !n?.nt) continue;
+    let p = null; try { p = await ntApi("pages/" + pid); } catch (e) { if (e.net || e.status === 401 || e.status >= 500) throw e; }
+    const unlink = () => put("notes", { ...n, nt: null, body: ntStrip(n.body) });
+    // deleted in Notion: delete here too, unless it was edited here since; untagged or no access: keep it, unlinked
+    if (p && (p.archived || p.in_trash) && nid(n.body || "") === n.nt.h) { NT.quiet = true; del("notes", n.id); NT.quiet = false; }
+    else unlink();
+  }
+  for (const n of Object.values(S.notes)) if (!n.nt?.pid && ntOn(n) && (n.body || "").trim() && S.notes[n.id]) await ntPush(n, c);
+}
+async function ntSync() {
+  const c = ntCfg(); if (!c || !ready) return;
+  if (NT.busy) { NT.again = true; return NT.busy; }
+  NT.busy = (async () => {
+    try { await ntRun(c); NT.at = Date.now(); NT.err = ""; }
+    catch (e) { NT.err = e?.status === 401 ? tr("Notion не принял токен, подключите заново") : e?.status === 404 ? tr("Нет доступа к базе Notion: откройте её для интеграции") : e?.message || "error"; }
+    finally { NT.busy = null; if (view() === "settings") render(); if (NT.again) { NT.again = false; ntSoon(1500); } }
+  })();
+  return NT.busy;
+}
+/* connect: a database link, a page link (a database is made inside it), or nothing (whatever was shared with the integration) */
+async function ntConnect(token, link, tag) {
+  tag = tag.replace(/^#/, "").trim() || "notion";
+  if (!/^[\p{L}\p{N}_-]+$/u.test(tag)) throw new Error(tr("В теге только буквы, цифры, - и _"));
+  if (!/^(ntn_|secret_)/.test(token)) throw new Error(tr("Токен начинается с ntn_ или secret_"));
+  const ids = (link.split("?")[0].match(/[0-9a-f]{32}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi) || []).map(ntId);
+  const api = (p, m, d) => ntApi(p, m, d, token);
+  const getDb = async id => { try { return await api("databases/" + id); } catch (e) { if (e.status === 401 || e.net) throw e; return null; } };
+  let db = null, parent = ids[ids.length - 1] || null;
+  if (parent) db = await getDb(parent);
+  else {
+    const s = await api("search", "POST", { page_size: 50 });
+    const dbs = (s.results || []).filter(r => r.object === "database"), pages = (s.results || []).filter(r => r.object === "page" && r.parent?.type !== "database_id");
+    db = dbs.find(d => /mingyue/i.test(ntPlain(d.title))) || (dbs.length === 1 ? dbs[0] : null);
+    if (!db && dbs.length > 1) throw new Error(tr("Интеграции открыто несколько баз, вставьте ссылку на нужную"));
+    if (!db) parent = pages[0] ? ntId(pages[0].id) : null;
+    if (!db && !parent) throw new Error(tr("Интеграции не открыта ни одна страница. В Notion: ⋯ → Подключения → Mingyue"));
+  }
+  if (!db) {
+    try {
+      db = await api("databases", "POST", { parent: { type: "page_id", page_id: parent }, is_inline: true, title: ntRT(tr("Заметки Mingyue")),
+        properties: { [tr("Название")]: { title: {} }, [tr("Теги")]: { multi_select: { options: [{ name: tag }] } } } });
+    } catch (e) { if (e.status === 404 || e.status === 400) throw new Error(tr("Нет доступа к странице. В Notion: ⋯ → Подключения → Mingyue")); throw e; }
+  }
+  const props = Object.entries(db.properties || {});
+  const tprop = props.find(([, v]) => v.type === "title")?.[0];
+  let tags = (props.find(([k, v]) => v.type === "multi_select" && /^(теги|тег|метки|tags?|labels?)$/i.test(k)) || props.find(([, v]) => v.type === "multi_select"))?.[0];
+  if (!tags) { tags = tr("Теги"); await api("databases/" + ntId(db.id), "PATCH", { properties: { [tags]: { multi_select: {} } } }); }
+  fbWrite(NT.ls, { token, db: ntId(db.id), name: ntPlain(db.title) || "Notion", url: db.url || "", tprop, tags, tag });
+  await ntSync(); if (NT.err) throw new Error(NT.err);
+}
+function ntDisconnect() {
+  fbWrite(NT.ls, null); fbWrite(NT.gone, null); NT.err = ""; NT.at = 0;
+  // the links stay on the notes, so connecting the same database again carries on where it stopped
+  render();
+}
+function ntStatus() {
+  const c = ntCfg();
+  if (!NHTTP) return tr("Работает в приложении для Android");
+  if (!c) return tr("Заметки с тегом синхронизируются с базой Notion");
+  if (NT.err) return NT.err;
+  if (NT.busy && !NT.at) return tr("Синхронизирую…");
+  const n = Object.values(S.notes).filter(x => x.nt?.pid).length;
+  return `«${c.name}» · #${c.tag} · ${n} ${pl(n, "заметка", "заметки", "заметок", "note", "notes")}` + (NT.at ? " · " + new Date(NT.at).toLocaleTimeString(LOC, { hour: "2-digit", minute: "2-digit" }) : "");
+}
+function ntSheet() {
+  const c = ntCfg() || {};
+  const inp = (id, ph, v) => h("input", { type: "text", id, placeholder: ph, value: v || "", autocomplete: "off", autocapitalize: "off", spellcheck: "false" });
+  const token = inp("nt-token", "ntn_…", c.token), link = inp("nt-link", tr("необязательно"), c.url), tag = inp("nt-tag", "notion", c.tag);
+  const close = () => scrim.remove();
+  const go = h("button", { class: "btn primary", onclick: async () => {
+    go.disabled = true; go.textContent = tr("Подключаю…");
+    try { await ntConnect(token.value.trim(), link.value.trim(), tag.value); close(); toast(tr("Notion подключён")); render(); }
+    catch (e) { go.disabled = false; go.textContent = tr("Подключить"); toast(e?.message?.slice(0, 160) || tr("Не получилось подключить Notion")); }
+  } }, tr("Подключить"));
+  const scrim = h("div", { class: "scrim", onclick: e => { if (e.target === scrim) close(); } },
+    h("div", { class: "sheet", role: "dialog", "aria-label": "Notion" },
+      h("b", {}, "Notion"),
+      h("small", { class: "nthelp" }, tr("1. notion.so/profile/integrations → Новая интеграция «Mingyue», скопируйте токен. 2. В Notion на нужной странице или базе: ⋯ → Подключения → Mingyue.")),
+      h("label", {}, tr("Токен интеграции"), token),
+      h("label", {}, tr("Ссылка на базу или страницу"), link),
+      h("label", {}, tr("Тег"), tag),
+      h("small", { class: "nthelp" }, tr("В Notion уходят заметки с #тегом в тексте, из Notion приходят страницы базы с этим тегом.")),
+      h("div", { class: "acts" }, ntCfg() ? h("button", { class: "btn danger", onclick: () => { close(); ntDisconnect(); } }, tr("Отключить")) : h("span"),
+        h("div", { style: "display:flex;gap:8px" }, h("button", { class: "btn", onclick: close }, tr("Отмена")), go))));
+  document.body.append(scrim); (c.token ? tag : token).focus();
+}
+/* editor bar: put a note into Notion or take it out */
+function ntNoteBtn(n) {
+  if (!ntCfg()) return null;
+  if (!ntOn(n)) return h("button", { class: "btn", onclick: () => { put("notes", { ...n, nt: { pid: null } }); ntSoon(300); } }, tr("В Notion"));
+  return h("span", { class: "ntctl" },
+    n.nt?.url ? h("a", { class: "btn", href: n.nt.url, target: "_blank", rel: "noopener" }, "Notion ↗") : h("span", { class: "chip" }, "Notion…"),
+    h("button", { class: "btn", "aria-label": tr("Убрать из Notion"), title: tr("Убрать из Notion"), onclick: () => {
+      if (n.nt?.pid) ntGone(n.nt.pid, "untag");
+      put("notes", { ...n, nt: null, body: ntStrip(n.body) });
+    } }, "×"));
+}
+if (NHTTP) {
+  addEventListener("online", () => ntSoon(500));
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) ntSoon(500); });
+  setInterval(() => { if (!document.hidden) ntSoon(0); }, 120000);
+  (function start() { if (!ready) return void setTimeout(start, 800); ntSoon(1500); })();
 }
 if (prefs.gcal) gLoad(today().slice(0, 7));
 initStore();
