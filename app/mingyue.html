@@ -995,6 +995,7 @@ const EN = {
   "Через 10 минут": "In 10 minutes",
   "Данные": "Data",
   "Добавлено в Google Календарь": "Added to Google Calendar",
+  "От нейросети добавлено: ": "Added by AI: ",
   "Здесь будут привычки. Добавьте одну и отмечайте каждый день.": "Your habits will live here. Add one and check it off every day.",
   "Интеграции": "Integrations",
   "Календарь работает, когда Mingyue открыт в claude.ai": "The calendar works when Mingyue is open in claude.ai",
@@ -1095,7 +1096,7 @@ const S = { tasks: {}, habits: {}, notes: {} };
 const COLLS = Object.keys(S);
 let mode = "local", base = null, ready = false;
 const HIRO_EL = document.getElementById("hiro"), DRAGON_EL = document.getElementById("hdragon");
-const markReady = () => { if (!ready) { ready = true; render(); finishSplash(); } };
+const markReady = () => { if (!ready) { ready = true; render(); finishSplash(); aiInbox(); } };
 /* the loading screen ends with a greeting: wait briefly for the profile name, then a one-line summary of today */
 async function finishSplash() {
   if (typeof MingyueSplash === "undefined") return;
@@ -1939,7 +1940,7 @@ function gNative() {
     if (res.status === 401 && again) { try { localStorage.removeItem(GTOK); } catch {} return api(path, init, false); }
     if (res.status === 401 || res.status === 403) throw Object.assign(new Error("HTTP " + res.status), { code: "native_signin" });
     if (!res.ok) throw Object.assign(new Error("HTTP " + res.status), { code: "upstream_error", retryable: res.status >= 500 || res.status === 429 });
-    return res.json();
+    return res.status === 204 ? {} : res.json();
   };
   const when = (v, allDay) => allDay ? { date: v.slice(0, 10) } : { dateTime: v, timeZone: TZ };
   return {
@@ -1956,6 +1957,7 @@ function gNative() {
           start: when(input.startTime, input.allDay), end: when(input.endTime, input.allDay) }) });
         return { payload: ev };
       }
+      if (tool === "delete_event") return { payload: await api("events/" + encodeURIComponent(input.eventId), { method: "DELETE" }) };
       throw Object.assign(new Error("unknown tool " + tool), { code: "upstream_error" });
     },
     invalidate: () => Promise.resolve(),
@@ -1964,7 +1966,7 @@ function gNative() {
 function gIndex() {
   const by = {}, own = new Set(tasks().map(t => t.gcal?.id).filter(Boolean));
   for (const list of Object.values(GC.months)) if (Array.isArray(list)) for (const e of list) {
-    if (own.has(e.id) || e.status === "cancelled") continue;
+    if (own.has(e.id) || e.status === "cancelled" || aiKind(e)) continue;
     const s = e.start || {}, en = e.end || {};
     const base = { id: e.id, title: e.summary || tr("Без названия"), link: e.htmlLink || null };
     if (s.dateTime) {
@@ -1980,6 +1982,42 @@ function gIndex() {
   }
   for (const k in by) by[k].sort((a, b) => (a.time || "").localeCompare(b.time || ""));
   GC.byDay = by;
+}
+/* ---------- AI inbox: any assistant that can write to the user's Google Calendar (Claude, Gemini, ChatGPT…) creates an event
+   titled "Mingyue: …", "Mingyue заметка: …" or "Mingyue привычка: …"; the app turns it into a task / note / habit once ---------- */
+const AI_RX = /^\s*(?:mingyue|минъюэ|мингъюэ)\s*(задача|task|заметка|note|привычка|habit)?\s*[:—–-]\s*([\s\S]+)$/i;
+const AI_SEEN = "mingyue.aiseen";
+function aiKind(e) {
+  const m = AI_RX.exec(e.summary || "");
+  if (m) return { kind: /^(заметка|note)$/i.test(m[1] || "") ? "notes" : /^(привычка|habit)$/i.test(m[1] || "") ? "habits" : "tasks", text: m[2].trim() };
+  if (/#mingyue\b/i.test(e.description || "")) return { kind: "tasks", text: (e.summary || "").trim() };
+  return null;
+}
+function aiInbox() {
+  if (!ready) return;
+  const seen = fbRead(AI_SEEN) || {}, now = Date.now(), done = [];
+  for (const list of Object.values(GC.months)) if (Array.isArray(list)) for (const e of list) {
+    const a = e.status !== "cancelled" && aiKind(e);
+    if (!a || !a.text || seen[e.id]) continue;
+    seen[e.id] = now; done.push(e.id);
+    // same id on every device, so two phones don't both add it
+    const id = "ai-" + String(e.id).replace(/[^\w-]/g, "").slice(0, 80);
+    if (S[a.kind][id]) continue;
+    const extra = (e.description || "").replace(/#mingyue\b/ig, "").trim();
+    if (a.kind === "notes") put("notes", { id, body: a.text + (extra ? "\n\n" + extra : ""), updatedAt: now });
+    else if (a.kind === "habits") { if (!Object.values(S.habits).some(hb => (hb.name || "").toLowerCase() === a.text.toLowerCase())) put("habits", { id, name: a.text, log: {}, createdAt: now }); }
+    else {
+      const p = parseQuick(a.text), st = e.start || {};
+      if (!p.title) continue;
+      put("tasks", { id, ...p, date: (st.dateTime || st.date || "").slice(0, 10) || p.date, time: st.dateTime ? st.dateTime.slice(11, 16) : p.time, done: false, createdAt: now, from: "ai" });
+    }
+  }
+  for (const k in seen) if (now - seen[k] > 90 * 86400000) delete seen[k];
+  fbWrite(AI_SEEN, seen);
+  if (!done.length) return;
+  toast(tr("От нейросети добавлено: ") + done.length);
+  // the calendar entry was only a messenger: remove it (the web connector may not allow this, then it just stays hidden)
+  gMcp().then(m => m && Promise.allSettled(done.map(eventId => m.callTool(GSRV, "delete_event", { eventId, notificationLevel: "NONE" }))));
 }
 /* last loaded months are kept on the device, so events stay visible offline */
 const GCACHE = "mingyue.gcal";
@@ -2018,8 +2056,9 @@ async function gLoad(mk, opts = {}) {
         all = all.concat(Array.isArray(p.events) ? p.events : []);
         token = p.nextPageToken || null;
       } while (token && ++pages < 4);
-      GC.months[mk] = all.map(({ id, summary, start, end, htmlLink, status }) => ({ id, summary, start, end, htmlLink, status }));
-      GC.state = "ok"; GC.code = ""; GC.offline = 0; gIndex(); gCacheSave(mk, GC.months[mk]);
+      GC.months[mk] = all.map(({ id, summary, description, start, end, htmlLink, status }) =>
+        ({ id, summary, start, end, htmlLink, status, ...(aiKind({ summary, description }) ? { description } : {}) }));
+      GC.state = "ok"; GC.code = ""; GC.offline = 0; gIndex(); gCacheSave(mk, GC.months[mk]); aiInbox();
     } catch (err) {
       if (err?.retryable && !retried) { await new Promise(r => setTimeout(r, (err.retryAfterMs || 1500) + Math.random() * 800)); return run(true); }
       if (gFromCache(mk)) { GC.state = "ok"; GC.code = ""; } else gFail(err);
@@ -2102,6 +2141,13 @@ async function sendToCalendar(t, vals, btn) {
     else toast(G_HELP[c] || tr("Календарь не принял событие") + (err?.message ? ": " + err.message.slice(0, 120) : ""));
   }
 }
-if (prefs.gcal) gLoad(today().slice(0, 7));
+if (prefs.gcal) { gLoad(today().slice(0, 7)); gLoad(gNext(today().slice(0, 7))); }
+// back in the app: pick up what an assistant added meanwhile
+let gSeenAt = Date.now();
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden || !prefs.gcal || GC.state !== "ok" || Date.now() - gSeenAt < 120000) return;
+  gSeenAt = Date.now(); const mk = today().slice(0, 7);
+  gLoad(mk, { refresh: true }); gLoad(gNext(mk), { refresh: true });
+});
 initStore();
 </script>
