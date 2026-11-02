@@ -879,6 +879,49 @@ main.in-l > * { animation: page-in-l .3s cubic-bezier(.3, .7, .2, 1); }
   .mg-hero { height: auto; gap: 16px; }
   .mg-card { height: 340px; }
 }
+/* ---------- subscriptions ---------- */
+.subsum { background: var(--h-surface); border-radius: var(--h-r); padding: 18px; display: grid; gap: 14px; }
+.subsum .tot { display: grid; gap: 4px; }
+.subsum .big { font: 700 30px/1.1 var(--h-f-display); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.subsum .lab { font-size: 12px; font-weight: 600; color: var(--h-muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+.subsum .yr { color: var(--h-muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.subsum .nx { display: flex; align-items: center; gap: 10px; padding-top: 12px; border-top: 1px solid var(--h-line); font-size: 14px; }
+.subsum .nx b { font-weight: 700; }
+.subsum .nx .grow { flex: 1; min-width: 0; }
+.sublist { background: var(--h-surface); border-radius: var(--h-r); padding: 0 16px; }
+.srow { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 10px 0; border: 0; border-top: 1px solid var(--h-line); background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.srow:first-child { border-top: 0; }
+.srow .ava { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font: 700 16px var(--h-f-display); border: 1.5px solid var(--h-fg); text-transform: uppercase; }
+.srow.soon .ava { background: var(--h-mark); color: var(--h-mark-fg); border-color: var(--h-mark); }
+.srow .nm { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.srow .mt { font-size: 12px; color: var(--h-muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.srow.soon .mt b { color: var(--h-fg); }
+.srow .pr { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.srow .pr small { display: block; font-size: 11px; font-weight: 500; color: var(--h-muted); }
+.srow.paused { opacity: .45; }
+.srow .mt .bell { width: 12px; height: 12px; margin-left: 6px; vertical-align: -1px; }
+.sheet select { border: 1px solid var(--h-line); background: var(--h-surface-2); border-radius: 10px; padding: 10px 12px; font: inherit; font-size: 16px; font-weight: 500; color: var(--h-fg); width: 100%; }
+.sheet input[type="number"] { border: 1px solid var(--h-line); background: var(--h-surface-2); border-radius: 10px; padding: 10px 12px; font: inherit; font-size: 16px; color: var(--h-fg); width: 100%; }
+.sheet .row.pc { grid-template-columns: 1fr 96px; }
+@media (max-width: 899px) { .sheet select, .sheet input[type="number"] { background: var(--p-soft); border-color: transparent; } }
+.subsum .nx svg { width: 18px; height: 18px; flex: none; }
+/* seven tabs on the phone bar: a little tighter so they fit a 360px screen */
+@media (max-width: 899px) {
+  .nav { gap: 0; }
+  .nav a { min-width: 34px; padding: 0 6px; }
+  .nav a[aria-current="page"] { padding: 0 12px; }
+  .nav a[aria-current="page"] .lbl { margin-left: 6px; }
+  .nav a.me-tab, .nav a.me-tab[aria-current="page"] { padding: 0 4px; }
+  .nav a.me-tab .avatar { width: 34px; height: 34px; }
+}
+@media (max-width: 380px) {
+  .side { left: 10px; right: 10px; }
+  .nav a { min-width: 32px; padding: 0 5px; }
+  .nav a[aria-current="page"] { padding: 0 11px; font-size: 13px; }
+}
+@media (max-width: 899px) { .head:has(.subadd) { flex-wrap: nowrap; align-items: flex-start; } .head:has(.subadd) > div:first-child { flex: 1; min-width: 0; } }
+.btn.subadd { width: 48px; height: 48px; padding: 0; border-radius: 50%; display: grid; place-items: center; flex: none; }
+.btn.subadd svg { width: 22px; height: 22px; }
 </style>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -887,6 +930,8 @@ main.in-l > * { animation: page-in-l .3s cubic-bezier(.3, .7, .2, 1); }
   <symbol id="i-habits" viewBox="0 0 24 24"><path d="M4 12l5 5L20 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   <symbol id="i-notes" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 12h7M9 16h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
   <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-subs" viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 10h18M7 14.5h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M10 20.5h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
   <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
@@ -902,6 +947,7 @@ main.in-l > * { animation: page-in-l .3s cubic-bezier(.3, .7, .2, 1); }
       <a href="#week" data-v="week"><svg><use href="#i-week"/></svg>Календарь</a>
       <a href="#habits" data-v="habits"><svg><use href="#i-habits"/></svg>Привычки</a>
       <a href="#notes" data-v="notes"><svg><use href="#i-notes"/></svg>Заметки</a>
+      <a href="#subs" data-v="subs"><svg><use href="#i-subs"/></svg>Подписки</a>
       <a href="#migo" data-v="migo"><span class="mg-navico"></span>Миго</a>
       <a href="#settings" data-v="settings" class="me-tab"><span class="avatar" id="nav-avatar">М</span>Настройки</a>
     </nav>
@@ -1033,6 +1079,42 @@ const LANG = (() => { try { const p = JSON.parse(localStorage.getItem("mingyue.p
 const LOC = LANG === "en" ? "en-GB" : "ru-RU";
 const tr = s => LANG === "en" ? (EN[s] ?? s) : s;
 const EN = {
+  "Раз в неделю": "Weekly",
+  "Раз в месяц": "Monthly",
+  "Раз в 3 мес.": "Quarterly",
+  "Раз в полгода": "Every 6 months",
+  "Раз в год": "Yearly",
+  "в нед.": "a week",
+  "в мес.": "a month",
+  "в 3 мес.": "per 3 months",
+  "в полгода": "per 6 months",
+  "в год": "a year",
+  "Не напоминать": "Don't remind",
+  "В день списания": "On the day",
+  "За день": "A day before",
+  "За 3 дня": "3 days before",
+  "За неделю": "A week before",
+  "Например: Яндекс Плюс": "For example: Spotify",
+  "Введите название": "Enter a name",
+  "Введите цену": "Enter a price",
+  "Подписка": "Subscription",
+  "Новая подписка": "New subscription",
+  "Цена": "Price",
+  "Валюта": "Currency",
+  "Как часто": "How often",
+  "Следующее списание": "Next charge",
+  "Напомнить": "Remind",
+  "На паузе: не считать и не напоминать": "Paused: not counted, no reminders",
+  "Регулярные платежи": "Recurring payments",
+  "Подписки": "Subs",
+  "В месяц": "Per month",
+  "В год": "Per year",
+  "Все подписки на паузе": "All subscriptions are paused",
+  "Ближайшее списание": "Next charge",
+  "на паузе": "paused",
+  "Здесь будут подписки. Добавьте первую, и Миго напомнит перед списанием.": "Your subscriptions will be here. Add the first one and Migo will remind you before each charge.",
+  "Сегодня списание": "Charge today",
+  "Завтра списание": "Charge tomorrow",
   "В гардероб": "To the wardrobe",
   "Все задания": "All quests",
   "Все привычки": "All habits",
@@ -1385,7 +1467,7 @@ function parseQuick(text, baseDate) {
 }
 
 /* ---------- store: synced via claude.ai db, local fallback ---------- */
-const S = { tasks: {}, habits: {}, notes: {} };
+const S = { tasks: {}, habits: {}, notes: {}, subs: {} };
 const COLLS = Object.keys(S);
 let mode = "local", base = null, ready = false;
 const HIRO_EL = document.getElementById("hiro"), DRAGON_EL = document.getElementById("hdragon");
@@ -1649,9 +1731,91 @@ function viewNotes() {
       editor));
 }
 
+/* ---------- subscriptions: regular payments, monthly total, reminder before each charge ---------- */
+const SUB_PER = { w: [tr("Раз в неделю"), 52 / 12], m: [tr("Раз в месяц"), 1], q: [tr("Раз в 3 мес."), 1 / 3], h: [tr("Раз в полгода"), 1 / 6], y: [tr("Раз в год"), 1 / 12] };
+const SUB_SHORT = { w: tr("в нед."), m: tr("в мес."), q: tr("в 3 мес."), h: tr("в полгода"), y: tr("в год") };
+const SUB_CUR = ["₽", "$", "€", "£", "₸", "₴", "Br", "¥"];
+const SUB_REM = [["off", tr("Не напоминать")], ["0", tr("В день списания")], ["1", tr("За день")], ["3", tr("За 3 дня")], ["7", tr("За неделю")]];
+const subs = () => Object.values(S.subs);
+function money(n, cur) {
+  const v = new Intl.NumberFormat(LOC, { maximumFractionDigits: Math.abs(n) >= 1000 || Number.isInteger(n) ? 0 : 2, minimumFractionDigits: 0 }).format(n);
+  return /^[$€£¥]$/.test(cur) ? cur + v : v + " " + cur;
+}
+function addMonths(d, n) { const y = d.getFullYear(), m = d.getMonth() + n, last = new Date(y, m + 1, 0).getDate(); return new Date(y, m, Math.min(d.getDate(), last)); }
+/* k-th charge counted from the date the user entered; months keep the day (31st becomes the last day of short months) */
+function subAt(s, k) { const a = parse(s.date); return ymd(s.per === "w" ? addDays(a, 7 * k) : addMonths(a, k * ({ m: 1, q: 3, h: 6, y: 12 }[s.per] || 1))); }
+function subNext(s, from = today()) { let k = 0, d = subAt(s, 0); while (d < from && k < 5000) d = subAt(s, ++k); return d; }
+function subDates(s, from, to) { const out = []; let k = 0, d = subAt(s, 0); while (d < from && k < 5000) d = subAt(s, ++k); while (d <= to && out.length < 60) { out.push(d); d = subAt(s, ++k); } return out; }
+const daysTo = d => Math.round((parse(d) - parse(today())) / 864e5);
+function inDays(n) {
+  if (n === 0) return tr("сегодня"); if (n === 1) return tr("завтра");
+  return LANG === "en" ? `in ${n} days` : `через ${n} ${plural(n, "день", "дня", "дней")}`;
+}
+function subTotals(list) {
+  const t = {}; for (const s of list) if (!s.paused) t[s.cur] = (t[s.cur] || 0) + (+s.price || 0) * (SUB_PER[s.per]?.[1] ?? 1);
+  return Object.entries(t).sort((a, b) => b[1] - a[1]);
+}
+function subSheet(s) {
+  const isNew = !s;
+  const last = subs().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))[0];
+  s ||= { name: "", price: "", cur: last?.cur || (LANG === "en" ? "$" : "₽"), per: "m", date: today(), remind: "1" };
+  const name = h("input", { type: "text", id: "s-name", value: s.name, placeholder: tr("Например: Яндекс Плюс"), autocomplete: "off", maxlength: "60" });
+  const price = h("input", { type: "number", id: "s-price", value: s.price, placeholder: "0", inputmode: "decimal", min: "0", step: "0.01" });
+  const sel = (id, opts, cur) => { const el = h("select", { id }, opts.map(([v, l]) => h("option", { value: v }, l))); el.value = cur; return el; };
+  const cur = sel("s-cur", SUB_CUR.map(c => [c, c]), s.cur);
+  const per = sel("s-per", Object.entries(SUB_PER).map(([k, v]) => [k, v[0]]), s.per);
+  const date = h("input", { type: "date", id: "s-date", value: isNew ? s.date : subNext(s) });
+  const rem = sel("s-rem", SUB_REM, s.remind || "off");
+  const paused = h("input", { type: "checkbox", id: "s-paused", checked: !!s.paused });
+  const close = () => scrim.remove();
+  const save = () => {
+    const n = name.value.trim(), p = parseFloat(String(price.value).replace(",", "."));
+    if (!n) { name.focus(); return toast(tr("Введите название")); }
+    if (!(p >= 0)) { price.focus(); return toast(tr("Введите цену")); }
+    put("subs", { ...s, id: s.id || uid(), name: n, price: Math.round(p * 100) / 100, cur: cur.value, per: per.value, date: date.value || today(), remind: rem.value, paused: paused.checked, createdAt: s.createdAt || Date.now() });
+    if (isNew) Hiro.mood("happy", 1500);
+    close();
+  };
+  let armed = false;
+  const delBtn = isNew ? h("span") : h("button", { class: "btn danger", onclick: () => { if (!armed) { armed = true; delBtn.textContent = tr("Точно удалить?"); return; } del("subs", s.id); close(); } }, tr("Удалить"));
+  const scrim = h("div", { class: "scrim", onclick: e => { if (e.target === scrim) close(); } },
+    h("div", { class: "sheet", role: "dialog", "aria-label": tr("Подписка") },
+      h("label", {}, tr("Название"), name),
+      h("div", { class: "row pc" }, h("label", {}, tr("Цена"), price), h("label", {}, tr("Валюта"), cur)),
+      h("div", { class: "row" }, h("label", {}, tr("Как часто"), per), h("label", {}, tr("Следующее списание"), date)),
+      h("label", {}, tr("Напомнить"), rem),
+      isNew ? null : h("label", { class: "chkrow" }, paused, tr("На паузе: не считать и не напоминать")),
+      h("div", { class: "acts" }, delBtn, h("div", { style: "display:flex;gap:8px" },
+        h("button", { class: "btn", onclick: close }, tr("Отмена")), h("button", { class: "btn primary", onclick: save }, isNew ? tr("Добавить") : tr("Сохранить"))))));
+  for (const el of [name, price]) el.addEventListener("keydown", e => { if (e.key === "Enter") save(); });
+  document.addEventListener("keydown", function esc(e) { if (e.key === "Escape") { close(); document.removeEventListener("keydown", esc); } });
+  document.body.append(scrim); if (isNew) name.focus();
+}
+function viewSubs() {
+  const all = subs().map(s => ({ s, next: subNext(s) })).sort((a, b) => (a.s.paused - b.s.paused) || a.next.localeCompare(b.next) || a.s.name.localeCompare(b.s.name));
+  const active = all.filter(x => !x.s.paused), tots = subTotals(subs());
+  const addBtn = h("button", { class: "btn primary subadd", "aria-label": tr("Новая подписка"), title: tr("Новая подписка"), onclick: () => subSheet() }, ico("i-plus"));
+  const upcoming = active[0];
+  const soonN = active.filter(x => daysTo(x.next) <= 7).length;
+  return h("div", { class: "wrap" },
+    header(tr("Регулярные платежи"), LANG === "en" ? "Subscriptions" : "Подписки", active.length ? (LANG === "en" ? `${active.length} active` : `${active.length} ${plural(active.length, "активная", "активные", "активных")}`) + (soonN ? " · " + (LANG === "en" ? `${soonN} this week` : `${soonN} на этой неделе`) : "") : null, addBtn),
+    all.length ? h("div", { class: "subsum" },
+      tots.length ? h("div", { class: "tot" }, h("div", { class: "lab" }, tr("В месяц")), h("div", { class: "big" }, tots.map(([c, v]) => money(Math.round(v * 100) / 100, c)).join(" + ")),
+        h("div", { class: "yr" }, tr("В год") + " " + tots.map(([c, v]) => money(Math.round(v * 12), c)).join(" + "))) : h("div", { class: "yr" }, tr("Все подписки на паузе")),
+      upcoming ? h("div", { class: "nx" }, ico("i-cal"), h("span", { class: "grow" }, tr("Ближайшее списание") + ": ", h("b", {}, upcoming.s.name), " · " + inDays(daysTo(upcoming.next)) + " · " + money(+upcoming.s.price, upcoming.s.cur))) : null) : null,
+    all.length ? h("div", { class: "sublist" }, all.map(({ s, next }) => {
+      const n = daysTo(next), soon = !s.paused && n <= 3;
+      return h("button", { class: "srow" + (soon ? " soon" : "") + (s.paused ? " paused" : ""), onclick: () => subSheet(s) },
+        h("span", { class: "ava", "aria-hidden": "true" }, [...s.name.trim()][0] || "·"),
+        h("span", {}, h("div", { class: "nm" }, s.name),
+          h("div", { class: "mt" }, s.paused ? tr("на паузе") : h("span", {}, h("b", {}, inDays(n)), " · " + parse(next).getDate() + " " + MON_GEN[parse(next).getMonth()]), !s.paused && s.remind && s.remind !== "off" ? ico("i-bell", "bell") : null)),
+        h("span", { class: "pr" }, money(+s.price, s.cur), h("small", {}, SUB_SHORT[s.per] || "")));
+    })) : h("div", { class: "list" }, blank(tr("Здесь будут подписки. Добавьте первую, и Миго напомнит перед списанием."), true)));
+}
+
 /* ---------- render ---------- */
 let lastAllDone = false;
-const VIEWS = { today: viewToday, week: viewWeek, habits: viewHabits, notes: viewNotes };
+const VIEWS = { today: viewToday, week: viewWeek, habits: viewHabits, notes: viewNotes, subs: viewSubs };
 const view = () => (location.hash.slice(1) in VIEWS ? location.hash.slice(1) : "today");
 /* ---------- reminders: local notifications, Android app only ---------- */
 const LN = window.Capacitor?.isNativePlatform?.() ? window.Capacitor.Plugins?.LocalNotifications : null;
@@ -1675,6 +1839,17 @@ function remindersPlan() {
     const names = open.slice(0, 3).map(x => x.title).join(", ") + (open.length > 3 ? "…" : "");
     list.push({ id: nid("d" + day), title: LANG === "en" ? `${open.length} ${open.length === 1 ? "task" : "tasks"} today` : `Сегодня ${open.length} ${plural(open.length, "дело", "дела", "дел")}`, body: names, at, extra: { day } });
   }
+  const from = today(), to = ymd(addDays(new Date(), 21)), at10 = prefs.digestAt || "09:00";
+  for (const s of subs()) {
+    if (s.paused || !s.remind || s.remind === "off") continue;
+    const lead = +s.remind;
+    for (const d of subDates(s, from, to)) {
+      const at = new Date(ymd(addDays(parse(d), -lead)) + "T" + at10).getTime();
+      if (at <= now || at > horizon) continue;
+      const when = lead === 0 ? tr("Сегодня списание") : lead === 1 ? tr("Завтра списание") : LANG === "en" ? `Charge in ${lead} days` : `Через ${lead} ${plural(lead, "день", "дня", "дней")} списание`;
+      list.push({ id: nid("s" + s.id + d), title: `${when}: ${s.name}`, body: money(+s.price, s.cur) + " · " + parse(d).getDate() + " " + MON_GEN[parse(d).getMonth()], at, extra: { view: "subs" } });
+    }
+  }
   return list.sort((a, b) => a.at - b.at).slice(0, 60);
 }
 async function syncReminders(ask) {
@@ -1693,9 +1868,9 @@ async function syncReminders(ask) {
   if (ask) render();
 }
 LN?.addListener("localNotificationActionPerformed", e => {
-  const day = e.notification?.extra?.day;
+  const day = e.notification?.extra?.day, v = e.notification?.extra?.view;
   if (day && typeof selDay !== "undefined") selDay = day;
-  location.hash = "#today"; render();
+  location.hash = "#" + (v || "today"); render();
 });
 LN?.checkPermissions().then(p => { REM.perm = p.display; }).catch(() => {});
 function render() {
