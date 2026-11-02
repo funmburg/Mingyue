@@ -25,7 +25,7 @@
 #msplash .migo[data-mood="wow"] .all { animation: ms-jolt .45s ease-out; transform-box: fill-box; transform-origin: 50% 100%; }
 @keyframes ms-jolt { 30% { transform: translateY(-9%) scale(.96, 1.06); } 60% { transform: translateY(0) scale(1.04, .96); } }
 #msplash .ms-status { position: absolute; left: 0; right: 0; bottom: calc(7cqh + env(safe-area-inset-bottom, 0px)); text-align: center; font-size: min(3.6cqw, 16px); font-weight: 600; opacity: .6; transition: opacity .3s; }
-#msplash .ms-bar { position: absolute; left: 50%; bottom: calc(4.6cqh + env(safe-area-inset-bottom, 0px)); width: min(26cqw, 120px); height: 3px; translate: -50% 0; border-radius: 3px; overflow: hidden; background: var(--h-surface-2, #F1EEE9); transition: opacity .3s; }
+#msplash .ms-bar { display: none; position: absolute; left: 50%; bottom: calc(4.6cqh + env(safe-area-inset-bottom, 0px)); width: min(26cqw, 120px); height: 3px; translate: -50% 0; border-radius: 3px; overflow: hidden; background: var(--h-surface-2, #F1EEE9); transition: opacity .3s; }
 #msplash .ms-bar i { position: absolute; inset: 0; transform-origin: left; transform: scaleX(0); background: var(--h-fg, #111); }
 #msplash.done .ms-status, #msplash.done .ms-bar { opacity: 0; }
 #msplash .ms-greet { position: absolute; left: 6cqw; right: 6cqw; top: 66cqh; text-align: center; opacity: 0; transform: translateY(2.5cqh); transition: opacity .7s .35s, transform .7s .35s; }
@@ -2069,7 +2069,12 @@ VIEWS.week = () => PHONE.matches ? viewCalendar() : viewWeek();
     requestAnimationFrame(follow);
   });
   addEventListener("resize", () => { from = null; follow(); });
-  $("#main").addEventListener("animationend", e => { if (e.target.parentElement?.id === "main") $("#main").classList.remove("in-l", "in-r"); });
+  $("#main").addEventListener("animationend", e => {
+    if (e.target.parentElement?.id !== "main") return;
+    $("#main").classList.remove("in-l", "in-r");
+    // the Migo card is pinned with position: fixed from where it stood mid-slide; measure again now the page is still
+    if (view() === "migo") migoLayout();
+  });
   requestAnimationFrame(() => { from = null; follow(); });
   document.fonts?.ready.then(() => { from = null; follow(); });
 })();
