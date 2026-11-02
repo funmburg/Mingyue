@@ -905,23 +905,12 @@ main.in-l > * { animation: page-in-l .3s cubic-bezier(.3, .7, .2, 1); }
 .sheet .row.pc { grid-template-columns: 1fr 96px; }
 @media (max-width: 899px) { .sheet select, .sheet input[type="number"] { background: var(--p-soft); border-color: transparent; } }
 .subsum .nx svg { width: 18px; height: 18px; flex: none; }
-/* seven tabs on the phone bar: a little tighter so they fit a 360px screen */
-@media (max-width: 899px) {
-  .nav { gap: 0; }
-  .nav a { min-width: 34px; padding: 0 6px; }
-  .nav a[aria-current="page"] { padding: 0 12px; }
-  .nav a[aria-current="page"] .lbl { margin-left: 6px; }
-  .nav a.me-tab, .nav a.me-tab[aria-current="page"] { padding: 0 4px; }
-  .nav a.me-tab .avatar { width: 34px; height: 34px; }
-}
-@media (max-width: 380px) {
-  .side { left: 10px; right: 10px; }
-  .nav a { min-width: 32px; padding: 0 5px; }
-  .nav a[aria-current="page"] { padding: 0 11px; font-size: 13px; }
-}
-@media (max-width: 899px) { .head:has(.subadd) { flex-wrap: nowrap; align-items: flex-start; } .head:has(.subadd) > div:first-child { flex: 1; min-width: 0; } }
-.btn.subadd { width: 48px; height: 48px; padding: 0; border-radius: 50%; display: grid; place-items: center; flex: none; }
-.btn.subadd svg { width: 22px; height: 22px; }
+.subhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.subhead h2 { margin: 0; font: 700 13px var(--h-f-body); text-transform: uppercase; letter-spacing: .06em; color: var(--h-muted); }
+.btn.subadd { display: inline-flex; align-items: center; gap: 6px; }
+.btn.subadd svg { width: 16px; height: 16px; }
+.subempty { background: var(--h-surface); border-radius: var(--h-r); padding: 16px; color: var(--h-muted); font-size: 14px; }
+.subsec { margin-top: 10px; }
 </style>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -947,7 +936,6 @@ main.in-l > * { animation: page-in-l .3s cubic-bezier(.3, .7, .2, 1); }
       <a href="#week" data-v="week"><svg><use href="#i-week"/></svg>Календарь</a>
       <a href="#habits" data-v="habits"><svg><use href="#i-habits"/></svg>Привычки</a>
       <a href="#notes" data-v="notes"><svg><use href="#i-notes"/></svg>Заметки</a>
-      <a href="#subs" data-v="subs"><svg><use href="#i-subs"/></svg>Подписки</a>
       <a href="#migo" data-v="migo"><span class="mg-navico"></span>Миго</a>
       <a href="#settings" data-v="settings" class="me-tab"><span class="avatar" id="nav-avatar">М</span>Настройки</a>
     </nav>
@@ -1106,7 +1094,7 @@ const EN = {
   "Напомнить": "Remind",
   "На паузе: не считать и не напоминать": "Paused: not counted, no reminders",
   "Регулярные платежи": "Recurring payments",
-  "Подписки": "Subs",
+  "Подписки": "Subscriptions",
   "В месяц": "Per month",
   "В год": "Per year",
   "Все подписки на паузе": "All subscriptions are paused",
@@ -1696,7 +1684,8 @@ function viewHabits() {
             const k = ymd(d), on = !!hb.log?.[k];
             return h("button", { class: "dot" + (on ? " on" : "") + (k === t ? " today" : ""), "aria-pressed": String(on), "aria-label": `${hb.name}, ${dateLabel(k)}`, onclick: () => toggleHabit(hb, k) }, d.getDate());
           })), x);
-      }))) : h("div", { class: "list" }, blank(tr("Здесь будут привычки. Добавьте одну и отмечайте каждый день."), true)));
+      }))) : h("div", { class: "list" }, blank(tr("Здесь будут привычки. Добавьте одну и отмечайте каждый день."), true)),
+    subsSection());
 }
 
 let openNote = null, noteTimer = null;
@@ -1791,14 +1780,13 @@ function subSheet(s) {
   document.addEventListener("keydown", function esc(e) { if (e.key === "Escape") { close(); document.removeEventListener("keydown", esc); } });
   document.body.append(scrim); if (isNew) name.focus();
 }
-function viewSubs() {
+function subsSection() {
   const all = subs().map(s => ({ s, next: subNext(s) })).sort((a, b) => (a.s.paused - b.s.paused) || a.next.localeCompare(b.next) || a.s.name.localeCompare(b.s.name));
   const active = all.filter(x => !x.s.paused), tots = subTotals(subs());
-  const addBtn = h("button", { class: "btn primary subadd", "aria-label": tr("Новая подписка"), title: tr("Новая подписка"), onclick: () => subSheet() }, ico("i-plus"));
+  const addBtn = h("button", { class: "btn subadd", "aria-label": tr("Новая подписка"), onclick: () => subSheet() }, ico("i-plus"), tr("Добавить"));
   const upcoming = active[0];
-  const soonN = active.filter(x => daysTo(x.next) <= 7).length;
-  return h("div", { class: "wrap" },
-    header(tr("Регулярные платежи"), LANG === "en" ? "Subscriptions" : "Подписки", active.length ? (LANG === "en" ? `${active.length} active` : `${active.length} ${plural(active.length, "активная", "активные", "активных")}`) + (soonN ? " · " + (LANG === "en" ? `${soonN} this week` : `${soonN} на этой неделе`) : "") : null, addBtn),
+  return h("section", { class: "sec subsec", id: "subs" },
+    h("div", { class: "subhead" }, h("h2", {}, tr("Подписки")), addBtn),
     all.length ? h("div", { class: "subsum" },
       tots.length ? h("div", { class: "tot" }, h("div", { class: "lab" }, tr("В месяц")), h("div", { class: "big" }, tots.map(([c, v]) => money(Math.round(v * 100) / 100, c)).join(" + ")),
         h("div", { class: "yr" }, tr("В год") + " " + tots.map(([c, v]) => money(Math.round(v * 12), c)).join(" + "))) : h("div", { class: "yr" }, tr("Все подписки на паузе")),
@@ -1810,12 +1798,12 @@ function viewSubs() {
         h("span", {}, h("div", { class: "nm" }, s.name),
           h("div", { class: "mt" }, s.paused ? tr("на паузе") : h("span", {}, h("b", {}, inDays(n)), " · " + parse(next).getDate() + " " + MON_GEN[parse(next).getMonth()]), !s.paused && s.remind && s.remind !== "off" ? ico("i-bell", "bell") : null)),
         h("span", { class: "pr" }, money(+s.price, s.cur), h("small", {}, SUB_SHORT[s.per] || "")));
-    })) : h("div", { class: "list" }, blank(tr("Здесь будут подписки. Добавьте первую, и Миго напомнит перед списанием."), true)));
+    })) : h("div", { class: "subempty" }, tr("Здесь будут подписки. Добавьте первую, и Миго напомнит перед списанием.")));
 }
 
 /* ---------- render ---------- */
 let lastAllDone = false;
-const VIEWS = { today: viewToday, week: viewWeek, habits: viewHabits, notes: viewNotes, subs: viewSubs };
+const VIEWS = { today: viewToday, week: viewWeek, habits: viewHabits, notes: viewNotes };
 const view = () => (location.hash.slice(1) in VIEWS ? location.hash.slice(1) : "today");
 /* ---------- reminders: local notifications, Android app only ---------- */
 const LN = window.Capacitor?.isNativePlatform?.() ? window.Capacitor.Plugins?.LocalNotifications : null;
@@ -1870,7 +1858,8 @@ async function syncReminders(ask) {
 LN?.addListener("localNotificationActionPerformed", e => {
   const day = e.notification?.extra?.day, v = e.notification?.extra?.view;
   if (day && typeof selDay !== "undefined") selDay = day;
-  location.hash = "#" + (v || "today"); render();
+  location.hash = v === "subs" ? "#habits" : "#today"; render();
+  if (v === "subs") setTimeout(() => $("#subs")?.scrollIntoView({ block: "start" }), 300);
 });
 LN?.checkPermissions().then(p => { REM.perm = p.display; }).catch(() => {});
 function render() {
