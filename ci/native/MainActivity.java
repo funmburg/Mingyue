@@ -17,6 +17,8 @@ public class MainActivity extends BridgeActivity implements ModifiedMainActivity
     public void onCreate(Bundle savedInstanceState) {
         // the app's own plugin that feeds the home-screen widgets (ci/native/widgets)
         registerPlugin(MingyueWidgetsPlugin.class);
+        // silent Google token refresh for the calendar, no sign-in sheet on every launch
+        registerPlugin(QuietGooglePlugin.class);
         super.onCreate(savedInstanceState);
     }
 
